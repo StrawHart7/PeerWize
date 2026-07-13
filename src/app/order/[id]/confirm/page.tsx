@@ -12,6 +12,7 @@ type Order = {
   products: {
     nom: string
     photo_url: string | null
+    slug: string
   } | null
   payments: {
     provider: string
@@ -80,7 +81,7 @@ export default async function ConfirmPage({
 
   const { data } = await supabase
     .from('orders')
-    .select('id, montant_total, quantite, statut, products(nom, photo_url), payments(provider)')
+    .select('id, montant_total, quantite, statut, products(nom, photo_url, slug), payments(provider)')
     .eq('id', id)
     .single()
 
@@ -258,7 +259,7 @@ export default async function ConfirmPage({
         </Link>
 
         <Link
-          href={`/p/${data.products && 'slug' in (data.products as object) ? (data.products as { slug?: string }).slug ?? '' : ''}`}
+          href={`/p/${order.products?.slug ?? ''}`}
           className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl text-sm font-semibold"
           style={{
             color: '#1A1C1E',
