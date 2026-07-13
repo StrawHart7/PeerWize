@@ -1,65 +1,131 @@
-import Image from "next/image";
+"use client";
 
-export default function Home() {
+import { useEffect, useState, useRef } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+import Image from "next/image";
+import { Menu, X, User } from "lucide-react";
+import { createClient } from "../lib/supabase/client";
+
+export default function LandingPage() {
+  const router = useRouter();
+  const supabase = createClient();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [checking, setChecking] = useState(true);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  // Redirect si déjà connecté
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) {
+        router.replace("/dashboard");
+      } else {
+        setChecking(false);
+      }
+    });
+  }, [router, supabase]);
+
+  // Fermer menu si clic outside
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false);
+      }
+    }
+    if (menuOpen) document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [menuOpen]);
+
+  if (checking) {
+    return (
+      <div className="h-screen w-screen flex items-center justify-center bg-white">
+        <div className="w-8 h-8 border-2 border-[#006A4E] border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+    <div className="h-screen w-screen overflow-hidden flex flex-col bg-white relative">
+      {/* ── Navbar ── */}
+      <header className="flex items-center justify-between px-4 pt-12 pb-2 shrink-0">
+        {/* Hamburger */}
+        <div className="relative" ref={menuRef}>
+          <button
+            onClick={() => setMenuOpen((v) => !v)}
+            className="w-10 h-10 flex items-center justify-center rounded-xl hover:bg-gray-100 active:bg-gray-200 transition-colors"
+            aria-label="Menu"
           >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+            {menuOpen ? <X size={22} color="#1A1C1E" /> : <Menu size={22} color="#1A1C1E" />}
+          </button>
+
+          {/* Dropdown menu */}
+          {menuOpen && (
+            <div className="absolute top-12 left-0 w-52 bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden z-50">
+              <Link
+                href="/login"
+                className="flex items-center gap-3 px-4 py-3.5 text-sm font-medium text-[#1A1C1E] hover:bg-gray-50 active:bg-gray-100 transition-colors"
+                onClick={() => setMenuOpen(false)}
+              >
+                <User size={16} color="#006A4E" />
+                Se connecter
+              </Link>
+              <div className="border-t border-gray-100" />
+              <Link
+                href="/about"
+                className="flex items-center gap-3 px-4 py-3.5 text-sm font-medium text-[#1A1C1E] hover:bg-gray-50 active:bg-gray-100 transition-colors"
+                onClick={() => setMenuOpen(false)}
+              >
+                <span className="w-4 h-4 rounded-full border-2 border-[#006A4E] flex items-center justify-center">
+                  <span className="text-[8px] font-bold text-[#006A4E]">i</span>
+                </span>
+                À propos
+              </Link>
+            </div>
+          )}
         </div>
+
+        {/* Logo centré */}
+        <Image src="/PeerWize.svg" alt="PeerWize" width={110} height={32} priority />
+
+        {/* Placeholder droit pour symétrie */}
+        <div className="w-10 h-10" />
+      </header>
+
+      {/* ── Corps — centré verticalement ── */}
+      <main className="flex-1 flex flex-col items-center justify-center px-6 text-center">
+        {/* Icône logo */}
+        <div className="w-20 h-20 rounded-2xl border-2 border-gray-200 flex items-center justify-center mb-8 shadow-sm">
+          <Image src="/PeerWize.svg" alt="" width={48} height={48} aria-hidden />
+        </div>
+
+        {/* Headline */}
+        <h1 className="text-[28px] font-bold leading-tight text-[#1A1C1E] font-[var(--font-jakarta)] mb-3">
+          Le commerce simplifié, de personne à personne.
+        </h1>
+
+        {/* Sous-titre */}
+        <p className="text-sm text-gray-500 font-[var(--font-vietnam)] leading-relaxed max-w-xs">
+          Vendez vos produits et gérez vos commandes en toute simplicité au Togo.
+        </p>
       </main>
+
+      {/* ── CTAs en bas ── */}
+      <footer className="px-6 pb-12 shrink-0 flex flex-col gap-3">
+        <Link
+          href="/register"
+          className="w-full py-4 rounded-2xl text-white font-semibold text-base text-center transition-opacity active:opacity-80"
+          style={{ backgroundColor: "#006A4E" }}
+        >
+          Je souhaite vendre
+        </Link>
+
+        <Link
+          href="/marketplace"
+          className="w-full py-4 rounded-2xl font-semibold text-base text-center border-2 border-gray-200 text-[#1A1C1E] transition-colors active:bg-gray-50"
+        >
+          Je souhaite acheter
+        </Link>
+      </footer>
     </div>
   );
 }
