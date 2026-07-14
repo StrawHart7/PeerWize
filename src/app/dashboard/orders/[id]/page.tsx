@@ -218,7 +218,7 @@ export default function OrderDetailPage() {
       </div>
 
       {/* ── Contenu ── */}
-      <div className="flex-1 px-4 pt-5 pb-10 overflow-y-auto">
+      <div className="flex-1 px-4 pt-5 pb-24 overflow-y-auto">
 
         {/* Numéro + badge statut */}
         <div className="flex items-center justify-between mb-5">

@@ -112,7 +112,7 @@ export default function LandingPage() {
       {/* ── CTAs en bas ── */}
       <footer className="px-6 pb-12 shrink-0 flex flex-col gap-3">
         <Link
-          href="/register"
+          href="/login"
           className="w-full py-4 rounded-2xl text-white font-semibold text-base text-center transition-opacity active:opacity-80"
           style={{ backgroundColor: "#006A4E" }}
         >
