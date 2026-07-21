@@ -152,16 +152,16 @@ export async function POST(req: NextRequest) {
       },
     );
 
+    const tokenData = await tokenRes.json();
+
     if (!tokenRes.ok) {
-      const tokenErr = await tokenRes.json();
-      console.error("FedaPay token error:", tokenErr);
+      console.error("FedaPay token error:", tokenData);
       return NextResponse.json(
         { error: "Erreur lors de la génération du token." },
         { status: 502 },
       );
     }
 
-    const tokenData = await tokenRes.json();
     const token = tokenData.token;
 
     if (!token) {
@@ -192,9 +192,18 @@ export async function POST(req: NextRequest) {
       },
     );
 
+    // Toujours consommer le body même si ok
+    let payData: unknown;
+    try {
+      payData = await payRes.json();
+    } catch {
+      payData = null;
+    }
+
+    console.log("FedaPay pay response:", JSON.stringify(payData), "status:", payRes.status);
+
     if (!payRes.ok) {
-      const payErr = await payRes.json();
-      console.error("FedaPay pay error:", payErr);
+      console.error("FedaPay pay error:", payData);
       return NextResponse.json(
         { error: "Erreur lors du déclenchement du paiement Mobile Money." },
         { status: 502 },
