@@ -51,28 +51,26 @@ export async function POST(req: NextRequest) {
 
     const phoneNumber = order.client_whatsapp.replace("+", "");
 
-    const fedaRes = await fetch(
-      "https://api.fedapay.com/v1/transactions",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${process.env.FEDAPAY_SECRET_KEY}`,
-        },
-        body: JSON.stringify({
-          description: `Commande PeerWize #${order_id.slice(0, 8)}`,
-          amount,
-          currency: { iso: "XOF" },
-          callback_url: `${process.env.NEXT_PUBLIC_APP_URL}/api/payments/webhook`,
-          customer: {
-            phone_number: {
-              number: phoneNumber,
-              country: "TG",
-            },
-          },
-        }),
+    // ── Étape 1 : Créer la transaction FedaPay ────────────────────────────────
+    const fedaRes = await fetch("https://api.fedapay.com/v1/transactions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${process.env.FEDAPAY_SECRET_KEY}`,
       },
-    );
+      body: JSON.stringify({
+        description: `Commande PeerWize #${order_id.slice(0, 8)}`,
+        amount,
+        currency: { iso: "XOF" },
+        callback_url: `${process.env.NEXT_PUBLIC_APP_URL}/api/payments/webhook`,
+        customer: {
+          phone_number: {
+            number: phoneNumber,
+            country: "TG",
+          },
+        },
+      }),
+    });
 
     const fedaData = await fedaRes.json();
 
@@ -94,6 +92,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // ── Étape 2 : Enregistrer le paiement en DB ───────────────────────────────
     const { error: paymentError } = await supabase.from("payments").insert({
       order_id,
       provider,
@@ -110,10 +109,10 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Stockage de l'URL de checkout FedaPay
-    let checkoutUrl: string | null = null;
-
-    if (provider !== "card") {
+    // ── Étape 3 : Carte → pas de USSD, retour direct ─────────────────────────
+    if (provider === "card") {
+      // Pour la carte, FedaPay nécessite une redirection externe
+      // On génère le token et on retourne l'URL de checkout
       const tokenRes = await fetch(
         `https://api.fedapay.com/v1/transactions/${transactionId}/token`,
         {
@@ -122,38 +121,92 @@ export async function POST(req: NextRequest) {
             "Content-Type": "application/json",
             Authorization: `Bearer ${process.env.FEDAPAY_SECRET_KEY}`,
           },
-          body: JSON.stringify({
-            provider,
-            phone_number: {
-              number: phoneNumber,
-              country: "TG",
-            },
-          }),
         },
       );
 
       if (!tokenRes.ok) {
         const tokenErr = await tokenRes.json();
-        console.error("FedaPay token error:", tokenErr);
-      } else {
-        const tokenData = await tokenRes.json();
-
-        checkoutUrl = tokenData.url ?? null;
-
-        console.log(
-          "FedaPay token response:",
-          JSON.stringify(tokenData),
+        console.error("FedaPay token error (card):", tokenErr);
+        return NextResponse.json(
+          { error: "Erreur lors de la génération du lien de paiement." },
+          { status: 502 },
         );
       }
+
+      const tokenData = await tokenRes.json();
+      return NextResponse.json({
+        success: true,
+        checkout_url: tokenData.url ?? null,
+      });
     }
 
-    return NextResponse.json({
-      success: true,
-      checkout_url: checkoutUrl,
-    });
+    // ── Étape 4 : Mobile Money → token puis /pay (USSD push) ─────────────────
+    const tokenRes = await fetch(
+      `https://api.fedapay.com/v1/transactions/${transactionId}/token`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${process.env.FEDAPAY_SECRET_KEY}`,
+        },
+      },
+    );
+
+    if (!tokenRes.ok) {
+      const tokenErr = await tokenRes.json();
+      console.error("FedaPay token error:", tokenErr);
+      return NextResponse.json(
+        { error: "Erreur lors de la génération du token." },
+        { status: 502 },
+      );
+    }
+
+    const tokenData = await tokenRes.json();
+    const token = tokenData.token;
+
+    if (!token) {
+      console.error("FedaPay: token manquant", tokenData);
+      return NextResponse.json(
+        { error: "Token de paiement introuvable." },
+        { status: 502 },
+      );
+    }
+
+    // Déclenche la notification USSD sur le téléphone du client
+    const payRes = await fetch(
+      `https://api.fedapay.com/v1/transactions/${transactionId}/pay`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${process.env.FEDAPAY_SECRET_KEY}`,
+        },
+        body: JSON.stringify({
+          token,
+          provider,
+          phone_number: {
+            number: phoneNumber,
+            country: "TG",
+          },
+        }),
+      },
+    );
+
+    if (!payRes.ok) {
+      const payErr = await payRes.json();
+      console.error("FedaPay pay error:", payErr);
+      return NextResponse.json(
+        { error: "Erreur lors du déclenchement du paiement Mobile Money." },
+        { status: 502 },
+      );
+    }
+
+    // Succès — le client va recevoir la notification USSD
+    // On retourne sans checkout_url : le client reste dans l'app sur /processing
+    return NextResponse.json({ success: true, checkout_url: null });
+
   } catch (err) {
     console.error("Unexpected error:", err);
-
     return NextResponse.json(
       { error: "Erreur serveur inattendue." },
       { status: 500 },

@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { Plus_Jakarta_Sans, Be_Vietnam_Pro } from 'next/font/google'
 import './globals.css'
+import { PWAProvider } from '../components/PWAProvider'
 
 const jakarta = Plus_Jakarta_Sans({
   subsets: ['latin'],
@@ -15,7 +16,20 @@ const vietnam = Be_Vietnam_Pro({
 
 export const metadata: Metadata = {
   title: 'PeerWize',
-  description: 'Commerce Togolais',
+  description: 'Vendez en ligne, encaissez facilement.',
+  manifest: '/site.webmanifest',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'default',
+    title: 'PeerWize',
+  },
+  icons: {
+    icon: [
+      { url: '/assets/favicon-16x16.png', sizes: '16x16', type: 'image/png' },
+      { url: '/assets/favicon-32x32.png', sizes: '32x32', type: 'image/png' },
+    ],
+    apple: '/assets/apple-touch-icon.png',
+  },
 }
 
 export default function RootLayout({
@@ -25,7 +39,12 @@ export default function RootLayout({
 }) {
   return (
     <html lang="fr" className={`${jakarta.variable} ${vietnam.variable}`}>
-      <body>{children}</body>
+      <head>
+        <meta name="theme-color" content="#006A4E" />
+      </head>
+      <body>
+        <PWAProvider>{children}</PWAProvider>
+      </body>
     </html>
   )
 }

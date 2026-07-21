@@ -2,7 +2,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useRouter, useParams } from 'next/navigation'
+import { useRouter, useParams, useSearchParams } from 'next/navigation'
 import { createClient } from '@/src/lib/supabase/client'
 
 const POLL_INTERVAL = 2000  // 2s
@@ -11,7 +11,9 @@ const MAX_WAIT = 120000     // 2 min max
 export default function ProcessingPage() {
   const router = useRouter()
   const params = useParams()
+  const searchParams = useSearchParams()
   const orderId = params.id as string
+  const slug = searchParams.get('slug') ?? ''
 
   const [timedOut, setTimedOut] = useState(false)
   const supabase = createClient()
@@ -41,8 +43,12 @@ export default function ProcessingPage() {
 
       if (data?.statut === 'annulée') {
         stopped = true
-        // Paiement refusé ou annulé — retour à la page pay avec message
-        router.push(`/p/_/pay?order=${orderId}&error=declined`)
+        // Redirige vers la page pay du bon produit avec message d'erreur
+        if (slug) {
+          router.push(`/p/${slug}/pay?order=${orderId}&error=declined`)
+        } else {
+          router.push('/')
+        }
         return
       }
 
@@ -60,7 +66,7 @@ export default function ProcessingPage() {
     setTimeout(poll, POLL_INTERVAL)
 
     return () => { stopped = true }
-  }, [orderId])
+  }, [orderId, slug])
 
   if (timedOut) {
     return (
@@ -70,8 +76,8 @@ export default function ProcessingPage() {
           style={{ backgroundColor: '#fef2f2' }}
         >
           <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
-            <path d="M12 8v4m0 4h.01" stroke="#D21034" strokeWidth={2.2} strokeLinecap="round"/>
-            <circle cx="12" cy="12" r="9" stroke="#D21034" strokeWidth={2}/>
+            <path d="M12 8v4m0 4h.01" stroke="#D21034" strokeWidth={2.2} strokeLinecap="round" />
+            <circle cx="12" cy="12" r="9" stroke="#D21034" strokeWidth={2} />
           </svg>
         </div>
         <h2
@@ -87,7 +93,13 @@ export default function ProcessingPage() {
           Nous n'avons pas reçu de confirmation. Si tu as payé, contacte le vendeur avec ton numéro de commande.
         </p>
         <button
-          onClick={() => router.back()}
+          onClick={() => {
+            if (slug) {
+              router.push(`/p/${slug}/pay?order=${orderId}`)
+            } else {
+              router.back()
+            }
+          }}
           className="w-full py-4 rounded-2xl text-sm font-bold text-white"
           style={{ backgroundColor: '#006A4E', fontFamily: 'var(--font-jakarta)' }}
         >
@@ -115,7 +127,7 @@ export default function ProcessingPage() {
             fill="none"
             style={{ animation: 'spin 1.2s linear infinite' }}
           >
-            <circle cx="40" cy="40" r="34" stroke="#e5e7eb" strokeWidth="6"/>
+            <circle cx="40" cy="40" r="34" stroke="#e5e7eb" strokeWidth="6" />
             <path
               d="M40 6 a34 34 0 0 1 34 34"
               stroke="#006A4E"
@@ -144,8 +156,20 @@ export default function ProcessingPage() {
           <span style={{ color: '#006A4E' }}>Nous sécurisons votre transaction.</span>
         </p>
 
+        <div
+          className="mt-6 px-4 py-3 rounded-2xl"
+          style={{ backgroundColor: '#f0f9f5' }}
+        >
+          <p
+            className="text-xs text-center"
+            style={{ color: '#006A4E', fontFamily: 'var(--font-vietnam)' }}
+          >
+            Validez la notification reçue sur votre téléphone pour confirmer le paiement.
+          </p>
+        </div>
+
         <p
-          className="text-xs mt-10"
+          className="text-xs mt-8"
           style={{ color: '#9ca3af', fontFamily: 'var(--font-vietnam)' }}
         >
           🔒 Certifié sécurisé par{' '}

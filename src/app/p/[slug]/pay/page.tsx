@@ -31,16 +31,7 @@ function FloozIcon() {
     >
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
         <circle cx="12" cy="12" r="10" fill="#FF6600" opacity="0.15" />
-        <text
-          x="12"
-          y="16"
-          textAnchor="middle"
-          fontSize="11"
-          fontWeight="800"
-          fill="#FF6600"
-        >
-          F
-        </text>
+        <text x="12" y="16" textAnchor="middle" fontSize="11" fontWeight="800" fill="#FF6600">F</text>
       </svg>
     </div>
   );
@@ -54,16 +45,7 @@ function TMoneyIcon() {
     >
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
         <circle cx="12" cy="12" r="10" fill="#006A4E" opacity="0.15" />
-        <text
-          x="12"
-          y="16"
-          textAnchor="middle"
-          fontSize="10"
-          fontWeight="800"
-          fill="#006A4E"
-        >
-          T
-        </text>
+        <text x="12" y="16" textAnchor="middle" fontSize="10" fontWeight="800" fill="#006A4E">T</text>
       </svg>
     </div>
   );
@@ -76,22 +58,9 @@ function CardIcon() {
       style={{ backgroundColor: "#eff6ff" }}
     >
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-        <rect
-          x="2"
-          y="5"
-          width="20"
-          height="14"
-          rx="2"
-          stroke="#2563eb"
-          strokeWidth={1.8}
-        />
+        <rect x="2" y="5" width="20" height="14" rx="2" stroke="#2563eb" strokeWidth={1.8} />
         <path d="M2 10h20" stroke="#2563eb" strokeWidth={1.8} />
-        <path
-          d="M6 15h4"
-          stroke="#2563eb"
-          strokeWidth={1.8}
-          strokeLinecap="round"
-        />
+        <path d="M6 15h4" stroke="#2563eb" strokeWidth={1.8} strokeLinecap="round" />
       </svg>
     </div>
   );
@@ -141,7 +110,6 @@ export default function PaymentPage() {
     setError(null);
     setPaying(true);
 
-    // Map méthode → provider FedaPay
     const providerMap: Record<PaymentMethod, string> = {
       flooz: "moov_tg",
       tmoney: "togocel",
@@ -167,14 +135,17 @@ export default function PaymentPage() {
         return;
       }
 
-      // Redirige vers FedaPay checkout si dispo, sinon processing
+      // Carte : redirection externe FedaPay (inévitable pour 3DS)
       if (json.checkout_url) {
         window.location.href = json.checkout_url;
-      } else {
-        router.push(`/order/${order.id}/processing`);
+        return;
       }
 
-      } catch {
+      // Mobile Money : USSD envoyé sur le téléphone, on reste dans l'app
+      // On passe le slug pour pouvoir rediriger correctement en cas d'échec
+      router.push(`/order/${order.id}/processing?slug=${slug}`);
+
+    } catch {
       setError("Impossible de contacter le serveur. Vérifiez votre connexion.");
       setPaying(false);
     }
@@ -201,12 +172,7 @@ export default function PaymentPage() {
   }[] = [
     { key: "flooz", label: "Flooz", sub: "Moov Africa", icon: <FloozIcon /> },
     { key: "tmoney", label: "T-Money", sub: "Togocel", icon: <TMoneyIcon /> },
-    {
-      key: "carte",
-      label: "Carte bancaire",
-      sub: "Visa / Mastercard",
-      icon: <CardIcon />,
-    },
+    { key: "carte", label: "Carte bancaire", sub: "Visa / Mastercard", icon: <CardIcon /> },
   ];
 
   return (
@@ -220,19 +186,8 @@ export default function PaymentPage() {
           href={`/p/${slug}/order`}
           className="p-2 rounded-full hover:bg-gray-100 transition"
         >
-          <svg
-            width="20"
-            height="20"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="#1A1C1E"
-            strokeWidth={2}
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M15 19l-7-7 7-7"
-            />
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1A1C1E" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
           </svg>
         </Link>
 
@@ -243,13 +198,7 @@ export default function PaymentPage() {
           Paiement
         </span>
 
-        <button className="p-2 rounded-full hover:bg-gray-100 transition">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="#9ca3af">
-            <circle cx="5" cy="12" r="1.5" />
-            <circle cx="12" cy="12" r="1.5" />
-            <circle cx="19" cy="12" r="1.5" />
-          </svg>
-        </button>
+        <div className="w-9" />
       </div>
 
       {/* ── Contenu ── */}
@@ -264,11 +213,7 @@ export default function PaymentPage() {
           </p>
           <p
             className="text-4xl font-bold"
-            style={{
-              color: "#1A1C1E",
-              fontFamily: "var(--font-jakarta)",
-              letterSpacing: "-0.03em",
-            }}
+            style={{ color: "#1A1C1E", fontFamily: "var(--font-jakarta)", letterSpacing: "-0.03em" }}
           >
             {formatFCFA(order.montant_total)}
           </p>
@@ -285,11 +230,7 @@ export default function PaymentPage() {
         {error && (
           <div
             className="mb-4 px-4 py-3 rounded-xl text-sm"
-            style={{
-              backgroundColor: "#fef2f2",
-              color: "#D21034",
-              border: "1px solid #fecaca",
-            }}
+            style={{ backgroundColor: "#fef2f2", color: "#D21034", border: "1px solid #fecaca" }}
           >
             {error}
           </div>
@@ -304,9 +245,7 @@ export default function PaymentPage() {
                 onClick={() => setSelected(key)}
                 className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl transition text-left"
                 style={{
-                  border: isSelected
-                    ? "2px solid #006A4E"
-                    : "1.5px solid #e5e7eb",
+                  border: isSelected ? "2px solid #006A4E" : "1.5px solid #e5e7eb",
                   backgroundColor: isSelected ? "#f0f9f5" : "#fff",
                 }}
               >
@@ -314,24 +253,17 @@ export default function PaymentPage() {
                 <div className="flex-1">
                   <p
                     className="text-sm font-semibold"
-                    style={{
-                      color: "#1A1C1E",
-                      fontFamily: "var(--font-jakarta)",
-                    }}
+                    style={{ color: "#1A1C1E", fontFamily: "var(--font-jakarta)" }}
                   >
                     {label}
                   </p>
                   <p
                     className="text-xs mt-0.5"
-                    style={{
-                      color: "#9ca3af",
-                      fontFamily: "var(--font-vietnam)",
-                    }}
+                    style={{ color: "#9ca3af", fontFamily: "var(--font-vietnam)" }}
                   >
                     {sub}
                   </p>
                 </div>
-                {/* Check */}
                 <div
                   className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 transition"
                   style={{
@@ -341,13 +273,7 @@ export default function PaymentPage() {
                 >
                   {isSelected && (
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
-                      <path
-                        d="M5 13l4 4L19 7"
-                        stroke="white"
-                        strokeWidth={2.5}
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
+                      <path d="M5 13l4 4L19 7" stroke="white" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
                     </svg>
                   )}
                 </div>
@@ -356,15 +282,31 @@ export default function PaymentPage() {
           })}
         </div>
 
+        {/* Instruction Mobile Money */}
+        {selected !== "carte" && (
+          <div
+            className="flex items-start gap-3 px-4 py-3 rounded-2xl mb-4"
+            style={{ backgroundColor: "#f0f9f5", border: "1px solid #d1fae5" }}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" className="mt-0.5 shrink-0">
+              <circle cx="12" cy="12" r="9" stroke="#006A4E" strokeWidth={2} />
+              <path d="M12 8v4m0 4h.01" stroke="#006A4E" strokeWidth={2} strokeLinecap="round" />
+            </svg>
+            <p
+              className="text-xs leading-relaxed"
+              style={{ color: "#006A4E", fontFamily: "var(--font-vietnam)" }}
+            >
+              Après avoir cliqué sur Payer, vous recevrez une notification sur votre téléphone pour confirmer le paiement avec votre PIN.
+            </p>
+          </div>
+        )}
+
         {/* Badge sécurité SSL */}
         <div className="flex items-center justify-center gap-1.5">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
             <path
               d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"
-              stroke="#006A4E"
-              strokeWidth={2}
-              strokeLinecap="round"
-              strokeLinejoin="round"
+              stroke="#006A4E" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"
             />
           </svg>
           <span
@@ -391,26 +333,18 @@ export default function PaymentPage() {
           }}
         >
           {paying ? (
-            <div
-              className="w-4 h-4 rounded-full border-2 border-t-transparent animate-spin"
-              style={{ borderColor: "#fff", borderTopColor: "transparent" }}
-            />
+            <>
+              <div
+                className="w-4 h-4 rounded-full border-2 border-t-transparent animate-spin"
+                style={{ borderColor: "#fff", borderTopColor: "transparent" }}
+              />
+              <span>Envoi en cours…</span>
+            </>
           ) : (
             <>
               Payer {formatFCFA(order.montant_total)}
-              <svg
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="white"
-                strokeWidth={2.2}
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M9 5l7 7-7 7"
-                />
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth={2.2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
               </svg>
             </>
           )}

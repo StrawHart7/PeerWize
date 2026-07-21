@@ -1,0 +1,9 @@
+# robots.txt pour PeerWize
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /dashboard/
+Disallow: /login/
+Disallow: /register/
+
+Sitemap: https://peerwize.com/sitemap.xml
