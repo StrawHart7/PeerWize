@@ -36,9 +36,13 @@ export async function POST(req: NextRequest) {
 
     const statutMap: Record<string, { payment: string; order: string }> = {
       approved: { payment: 'success', order: 'payée'   },
+      successful: { payment: 'success', order: 'payée'   },
       declined: { payment: 'failed',  order: 'annulée' },
       canceled: { payment: 'failed',  order: 'annulée' },
+      cancelled:  { payment: 'failed',  order: 'annulée' },
     }
+
+    console.log('Webhook reçu:', { event, fedaStatut, providerRef })
 
     const mapped = statutMap[fedaStatut]
 
