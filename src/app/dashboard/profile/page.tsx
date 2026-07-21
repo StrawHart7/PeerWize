@@ -97,7 +97,7 @@ function BottomNav({ active }: { active: "home" | "orders" | "products" | "profi
   const items = [
     { key: "home", label: "Home", icon: Home, href: "/dashboard" },
     { key: "orders", label: "Orders", icon: ShoppingBag, href: "/dashboard/orders" },
-    { key: "products", label: "Products", icon: Package, href: "/dashboard/products/new" },
+    { key: "products", label: "Products", icon: Package, href: "/dashboard/products/" },
     { key: "profile", label: "Profile", icon: User, href: "/dashboard/profile" },
   ] as const;
 
@@ -289,21 +289,21 @@ export default function ProfilePage() {
 
       {/* Contenu */}
       <div className="px-4 pt-6">
-        <Section title="Account">
-          <MenuItem icon={User} label="Personal Info" href="/dashboard/profile/personal" />
-          <MenuItem icon={Lock} label="Login & Security" href="/dashboard/profile/security" />
+        <Section title="Compte">
+          <MenuItem icon={User} label="Informations Personnelles" href="/dashboard/profile/personal" />
+          <MenuItem icon={Lock} label="Connexion & Securité" href="/dashboard/profile/security" />
         </Section>
 
-        <Section title="Shop">
-          <MenuItem icon={Store} label="Shop Settings" href="/dashboard/profile/shop" />
-          <MenuItem icon={CreditCard} label="Payment Methods" href="/dashboard/profile/payment" />
-          <MenuItem icon={Truck} label="Shipping & Delivery" href="/dashboard/profile/shipping" />
+        <Section title="Boutique">
+          <MenuItem icon={Store} label="Paramètres de Boutique" href="/dashboard/profile/shop" />
+          <MenuItem icon={CreditCard} label="Méthodes de Payement" href="/dashboard/profile/payment" />
+          <MenuItem icon={Truck} label="Expédition et Livraison" href="/dashboard/profile/shipping" />
         </Section>
 
         <Section title="Support & Legal">
-          <MenuItem icon={HelpCircle} label="Help Center" href="/dashboard/profile/help" />
-          <MenuItem icon={FileText} label="Terms & Privacy" href="/dashboard/profile/terms" />
-          <MenuItem icon={MessageSquare} label="Contact Us" href="/dashboard/profile/contact" />
+          <MenuItem icon={HelpCircle} label="Centre d'aide" href="/dashboard/profile/help" />
+          <MenuItem icon={FileText} label="Politiques & Confidentialité" href="/dashboard/profile/terms" />
+          <MenuItem icon={MessageSquare} label="Contacter Nous" href="/dashboard/profile/contact" />
         </Section>
 
         {/* Déconnexion */}

@@ -5,6 +5,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/src/lib/supabase/client'
+import { motion, AnimatePresence } from 'framer-motion'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -96,32 +97,45 @@ export default function OrderDetailPage() {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [uploadedPath, setUploadedPath] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null)
+
+  // ─── Fetch commande depuis Supabase ───────────────────────────────────────
+  async function fetchOrder() {
+    console.log('🔄 Fetching order...')
+    const { data, error: fetchError } = await supabase
+      .from('orders')
+      .select(`
+        id, client_nom, client_whatsapp, quantite, montant_total,
+        statut, created_at,
+        products(nom, photo_url, slug),
+        payments(provider, provider_ref, paid_at)
+      `)
+      .eq('id', orderId)
+      .single()
+
+    if (fetchError || !data) {
+      console.error('❌ Fetch error:', fetchError)
+      router.push('/dashboard/orders')
+      return
+    }
+    
+    console.log('✅ Order fetched:', data)
+    setOrder(data as unknown as OrderDetail)
+  }
 
   useEffect(() => {
-    async function load() {
-      const { data } = await supabase
-        .from('orders')
-        .select(`
-          id, client_nom, client_whatsapp, quantite, montant_total,
-          statut, created_at,
-          products(nom, photo_url, slug),
-          payments(provider, provider_ref, paid_at)
-        `)
-        .eq('id', orderId)
-        .single()
-
-      if (!data) { router.push('/dashboard/orders'); return }
-      setOrder(data as unknown as OrderDetail)
+    async function init() {
+      await fetchOrder()
       setLoading(false)
     }
-    load()
+    init()
   }, [orderId])
 
+  // ─── Upload preuve ────────────────────────────────────────────────────────
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
 
-    // Preview local immédiat
     setPreviewUrl(URL.createObjectURL(file))
     setUploading(true)
     setError(null)
@@ -135,6 +149,7 @@ export default function OrderDetailPage() {
         .upload(path, file, { upsert: true })
 
       if (uploadError) {
+        console.error('❌ Upload error:', uploadError)
         setError("Erreur lors de l'upload. Réessayez.")
         setPreviewUrl(null)
         setUploading(false)
@@ -142,7 +157,11 @@ export default function OrderDetailPage() {
       }
 
       setUploadedPath(path)
-    } catch {
+      setToast({ message: '✅ Preuve téléchargée avec succès !', type: 'success' })
+      setTimeout(() => setToast(null), 3000)
+      
+    } catch (err) {
+      console.error('❌ Unexpected error:', err)
       setError("Erreur inattendue. Réessayez.")
       setPreviewUrl(null)
     } finally {
@@ -150,31 +169,76 @@ export default function OrderDetailPage() {
     }
   }
 
+  // ─── Marquer comme livrée (CORRIGÉ) ──────────────────────────────────────
   async function handleMarkDelivered() {
-    if (!uploadedPath || !order) return
+    if (!uploadedPath || !order) {
+      setError('Veuillez d\'abord ajouter une preuve de livraison.')
+      return
+    }
+    
     setMarking(true)
     setError(null)
 
-    const { error: updateError } = await supabase
-      .from('orders')
-      .update({ statut: 'livrée' })
-      .eq('id', order.id)
+    try {
+      console.log('🚀 Marquer comme livrée - ID:', order.id)
+      console.log('📦 Statut actuel:', order.statut)
 
-    if (updateError) {
-      setError('Erreur lors de la mise à jour. Réessayez.')
+      // 🔥 SUPPRESSION de updated_at car la colonne n'existe pas
+      const { error: updateError } = await supabase
+        .from('orders')
+        .update({ 
+          statut: 'livrée'
+          // ❌ SUPPRIMÉ: updated_at: new Date().toISOString()
+        })
+        .eq('id', order.id)
+
+      if (updateError) {
+        console.error('❌ Update error:', updateError)
+        console.error('❌ Error details:', JSON.stringify(updateError, null, 2))
+        setError(`Erreur: ${updateError.message || 'Erreur inconnue'}`)
+        setMarking(false)
+        return
+      }
+
+      console.log('✅ Update successful!')
+
+      // 🔥 Vérifier immédiatement si la mise à jour a fonctionné
+      const { data: verifyData, error: verifyError } = await supabase
+        .from('orders')
+        .select('statut, id')
+        .eq('id', order.id)
+        .single()
+
+      console.log('🔍 Vérification après update:', verifyData)
+
+      // 🔥 Mettre à jour l'état local
+      setOrder(prev => prev ? { ...prev, statut: 'livrée' } : prev)
+
+      // 🔥 Afficher le toast de succès
+      setToast({ 
+        message: '✅ Commande marquée comme livrée !', 
+        type: 'success' 
+      })
+      
+      // 🔥 Rediriger vers la liste après un délai
+      setTimeout(() => {
+        router.push('/dashboard/orders')
+      }, 2000)
+      
+    } catch (err) {
+      console.error('❌ Unexpected error:', err)
+      setError('Une erreur inattendue est survenue.')
+    } finally {
       setMarking(false)
-      return
     }
-
-    setOrder(prev => prev ? { ...prev, statut: 'livrée' } : prev)
-    setMarking(false)
   }
 
+  // ─── Loading ──────────────────────────────────────────────────────────────
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-white">
         <div
-          className="w-8 h-8 rounded-full border-2 border-t-transparent animate-spin"
+          className="w-8 h-8 rounded-full border-2 animate-spin"
           style={{ borderColor: '#006A4E', borderTopColor: 'transparent' }}
         />
       </div>
@@ -188,10 +252,27 @@ export default function OrderDetailPage() {
   const whatsappNumber = order.client_whatsapp.replace('+', '')
   const isPayee = order.statut === 'payée'
   const isLivree = order.statut === 'livrée'
-  const canMarkDelivered = isPayee && !!uploadedPath && !uploading
+  const canMarkDelivered = isPayee && !!uploadedPath && !uploading && !marking
 
   return (
     <div className="min-h-screen bg-white flex flex-col">
+
+      {/* ── Toast ── */}
+      <AnimatePresence>
+        {toast && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="fixed top-4 left-4 right-4 mx-auto max-w-sm p-4 rounded-2xl text-white text-center font-semibold z-50 shadow-lg"
+            style={{
+              backgroundColor: toast.type === 'success' ? '#006A4E' : '#D21034',
+            }}
+          >
+            {toast.message}
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* ── Header ── */}
       <div
@@ -218,7 +299,7 @@ export default function OrderDetailPage() {
       </div>
 
       {/* ── Contenu ── */}
-      <div className="flex-1 px-4 pt-5 pb-24 overflow-y-auto">
+      <div className="flex-1 px-4 pt-5 pb-28 overflow-y-auto">
 
         {/* Numéro + badge statut */}
         <div className="flex items-center justify-between mb-5">
@@ -409,7 +490,7 @@ export default function OrderDetailPage() {
           </div>
         )}
 
-        {/* ── Preuve de livraison ── (visible seulement si statut = payée) */}
+        {/* ── Preuve de livraison ── */}
         {isPayee && (
           <div
             className="rounded-2xl p-4 mb-4"
@@ -524,12 +605,12 @@ export default function OrderDetailPage() {
         {isPayee && (
           <button
             onClick={handleMarkDelivered}
-            disabled={!canMarkDelivered || marking}
+            disabled={!canMarkDelivered}
             className="w-full flex items-center justify-center gap-2 py-4 rounded-2xl text-white text-sm font-bold transition"
             style={{
-              backgroundColor: canMarkDelivered && !marking ? '#006A4E' : '#a3c9bc',
+              backgroundColor: canMarkDelivered ? '#006A4E' : '#a3c9bc',
               fontFamily: 'var(--font-jakarta)',
-              cursor: canMarkDelivered && !marking ? 'pointer' : 'not-allowed',
+              cursor: canMarkDelivered ? 'pointer' : 'not-allowed',
             }}
           >
             {marking ? (
@@ -567,6 +648,69 @@ export default function OrderDetailPage() {
         )}
 
       </div>
+
+      {/* ── Bottom Nav ── */}
+      <div
+        className="fixed bottom-0 left-0 right-0 bg-white flex items-center justify-around px-2 py-3"
+        style={{ borderTop: '1px solid #f3f4f6' }}
+      >
+        {[
+          {
+            href: '/dashboard',
+            label: 'Accueil',
+            icon: (
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3 9.75L12 3l9 6.75V21a1 1 0 01-1 1H4a1 1 0 01-1-1V9.75z"/>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 22V12h6v10"/>
+              </svg>
+            ),
+          },
+          {
+            href: '/dashboard/orders',
+            label: 'Commandes',
+            active: true,
+            icon: (
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/>
+                <rect x="9" y="3" width="6" height="4" rx="1" strokeLinecap="round" strokeLinejoin="round"/>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6M9 16h4"/>
+              </svg>
+            ),
+          },
+          {
+            href: '/dashboard/products',
+            label: 'Produits',
+            icon: (
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
+              </svg>
+            ),
+          },
+          {
+            href: '/dashboard/profile',
+            label: 'Profil',
+            icon: (
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}>
+                <circle cx="12" cy="8" r="4" strokeLinecap="round" strokeLinejoin="round"/>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
+              </svg>
+            ),
+          },
+        ].map((item) => (
+          <Link
+            key={item.href}
+            href={item.href}
+            className="flex flex-col items-center gap-0.5 min-w-[56px]"
+            style={{ color: item.active ? '#006A4E' : '#9ca3af' }}
+          >
+            {item.icon}
+            <span className="text-[10px] font-semibold" style={{ fontFamily: 'var(--font-vietnam)' }}>
+              {item.label}
+            </span>
+          </Link> 
+        ))}
+      </div>
+
     </div>
   )
 }

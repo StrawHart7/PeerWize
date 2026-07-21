@@ -18,3 +18,19 @@ body {
   font-family: var(--font-vietnam);
   background-color: #f5f5f5;
 }
+
+/* Pour les animations de toast */
+@keyframes slideDown {
+  from {
+    transform: translateY(-100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.animate-toast {
+  animation: slideDown 0.3s ease-out;
+}

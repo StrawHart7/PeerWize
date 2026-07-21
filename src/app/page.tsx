@@ -84,8 +84,21 @@ export default function LandingPage() {
           )}
         </div>
 
-        {/* Logo centré */}
-        <Image src="/PeerWize.svg" alt="PeerWize" width={110} height={32} priority />
+        {/* Logo centré - Version texte avec couleur principale */}
+        <div className="flex items-center gap-2">
+          <span 
+            className="text-2xl font-bold tracking-tight"
+            style={{ color: "#006A4E", fontFamily: "var(--font-jakarta)" }}
+          >
+            PeerWize
+          </span>
+          <span 
+            className="text-xs font-medium px-2 py-0.5 rounded-full"
+            style={{ backgroundColor: "#006A4E", color: "white" }}
+          >
+            Beta
+          </span>
+        </div>
 
         {/* Placeholder droit pour symétrie */}
         <div className="w-10 h-10" />
@@ -93,9 +106,12 @@ export default function LandingPage() {
 
       {/* ── Corps — centré verticalement ── */}
       <main className="flex-1 flex flex-col items-center justify-center px-6 text-center">
-        {/* Icône logo */}
-        <div className="w-20 h-20 rounded-2xl border-2 border-gray-200 flex items-center justify-center mb-8 shadow-sm">
-          <Image src="/PeerWize.svg" alt="" width={48} height={48} aria-hidden />
+        {/* Icône logo - plus petit et épuré */}
+        <div 
+          className="w-20 h-20 rounded-2xl flex items-center justify-center mb-8 shadow-sm"
+          style={{ backgroundColor: "#F0F7F4" }}
+        >
+          <Image src="/PeerWize.svg" alt="" width={40} height={40} aria-hidden />
         </div>
 
         {/* Headline */}

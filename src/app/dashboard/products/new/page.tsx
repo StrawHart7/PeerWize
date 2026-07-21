@@ -14,6 +14,7 @@ export default function NewProductPage() {
   const [photoPreview, setPhotoPreview] = useState<string | null>(null)
   const [photoFile, setPhotoFile] = useState<File | null>(null)
   const [actif, setActif] = useState(true)
+  const [copied, setCopied] = useState(false)
   const [form, setForm] = useState({
     nom: '',
     description: '',
@@ -21,22 +22,26 @@ export default function NewProductPage() {
     slug: '',
   })
 
-  function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) {
-    const { name, value } = e.target
-    setForm(prev => ({
-      ...prev,
-      [name]: value,
-      ...(name === 'nom' ? { slug: slugify(value) } : {}),
-    }))
+  function randomSuffix(): string {
+    return Math.random().toString(36).slice(2, 6)
   }
 
-  function slugify(text: string) {
+  function slugify(text: string): string {
     return text
       .toLowerCase()
       .normalize('NFD')
       .replace(/[\u0300-\u036f]/g, '')
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/(^-|-$)/g, '')
+  }
+
+  function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) {
+    const { name, value } = e.target
+    setForm(prev => ({
+      ...prev,
+      [name]: value,
+      ...(name === 'nom' ? { slug: `${slugify(value)}-${randomSuffix()}` } : {}),
+    }))
   }
 
   function handlePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -50,10 +55,18 @@ export default function NewProductPage() {
     setPhotoPreview(URL.createObjectURL(file))
   }
 
+  function handleCopy() {
+    if (!form.slug) return
+    const url = `${window.location.origin}/p/${form.slug}`
+    navigator.clipboard.writeText(url)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
   async function handleSubmit() {
     setError(null)
 
-    if (!form.nom || !form.prix_fcfa || !form.slug) {
+    if (!form.nom.trim() || !form.prix_fcfa || !form.slug) {
       setError('Nom et prix sont obligatoires.')
       return
     }
@@ -64,6 +77,22 @@ export default function NewProductPage() {
 
     if (!user) {
       setError('Non connecté.')
+      setLoading(false)
+      return
+    }
+
+    // Vérifier unicité du slug (sécurité supplémentaire)
+    const { data: existing } = await supabase
+      .from('products')
+      .select('id')
+      .eq('slug', form.slug)
+      .single()
+
+    if (existing) {
+      // Regénérer le slug avec un nouveau suffixe
+      const newSlug = `${slugify(form.nom)}-${randomSuffix()}`
+      setForm(prev => ({ ...prev, slug: newSlug }))
+      setError('Conflit de lien détecté, réessayez.')
       setLoading(false)
       return
     }
@@ -90,8 +119,20 @@ export default function NewProductPage() {
       photo_url = urlData.publicUrl
     }
 
+    const { data: seller } = await supabase
+      .from('sellers')
+      .select('id')
+      .eq('email', user.email)
+      .single()
+
+    if (!seller) {
+      setError('Vendeur introuvable.')
+      setLoading(false)
+      return
+    }
+
     const { error: insertError } = await supabase.from('products').insert({
-      seller_id: user.id,
+      seller_id: seller.id,
       nom: form.nom,
       description: form.description,
       prix_fcfa: parseInt(form.prix_fcfa),
@@ -106,8 +147,12 @@ export default function NewProductPage() {
       return
     }
 
-    router.push('/dashboard')
+    router.push('/dashboard/products')
   }
+
+  const previewLink = form.slug
+    ? `${typeof window !== 'undefined' ? window.location.origin : ''}/p/${form.slug}`
+    : '/p/votre-produit'
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: '#1A1C1E' }}>
@@ -184,7 +229,6 @@ export default function NewProductPage() {
             >
               {photoPreview ? (
                 <>
-                  {/* Fond flouté contenu dans le div */}
                   <div
                     className="absolute inset-0"
                     style={{
@@ -195,14 +239,12 @@ export default function NewProductPage() {
                       transform: 'scale(1.15)',
                     }}
                   />
-                  {/* Image principale par dessus */}
                   <img
                     src={photoPreview}
                     alt="preview"
                     className="absolute inset-0 w-full h-full object-contain"
                     style={{ zIndex: 1 }}
                   />
-                  {/* Badge */}
                   <div
                     className="absolute bottom-2 right-2 px-2 py-1 rounded-md text-xs text-white"
                     style={{ backgroundColor: 'rgba(0,0,0,0.55)', zIndex: 2 }}
@@ -235,8 +277,8 @@ export default function NewProductPage() {
               value={form.nom}
               onChange={handleChange}
               placeholder="Ex: Smartphone X2"
-              className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:border-transparent"
-              style={{ color: '#1A1C1E', focusRingColor: '#006A4E' } as React.CSSProperties}
+              className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none"
+              style={{ color: '#1A1C1E' }}
             />
           </div>
 
@@ -252,7 +294,7 @@ export default function NewProductPage() {
                 value={form.prix_fcfa}
                 onChange={handleChange}
                 placeholder="0"
-                className="w-full border border-gray-200 rounded-xl px-4 py-3 pr-16 text-sm focus:outline-none focus:ring-2 focus:border-transparent"
+                className="w-full border border-gray-200 rounded-xl px-4 py-3 pr-16 text-sm focus:outline-none"
                 style={{ color: '#1A1C1E' }}
               />
               <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-medium text-gray-400">
@@ -272,7 +314,7 @@ export default function NewProductPage() {
               onChange={handleChange}
               rows={4}
               placeholder="Décrivez les caractéristiques et l'état de votre produit..."
-              className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:border-transparent resize-none"
+              className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none resize-none"
               style={{ color: '#1A1C1E' }}
             />
           </div>
@@ -298,23 +340,35 @@ export default function NewProductPage() {
           {/* Aperçu lien */}
           <div>
             <label className="block text-sm font-medium mb-1.5" style={{ color: '#006A4E' }}>
-              Aperçu du lien
+              Lien du produit
             </label>
-            <div className="flex items-center justify-between border border-gray-200 rounded-xl px-4 py-3 bg-gray-50 gap-3">
-              <div className="flex items-center gap-2 overflow-hidden">
+            <div
+              className="flex items-center justify-between rounded-xl px-4 py-3 gap-3"
+              style={{ backgroundColor: '#f8f9fa', border: '1px solid #f3f4f6' }}
+            >
+              <div className="flex items-center gap-2 overflow-hidden flex-1">
                 <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="#006A4E" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
                 </svg>
-                <span className="text-xs text-gray-500 truncate">
-                  boutique.tg/p/{form.slug || 'votre-produit'}
+                <span
+                  className="text-xs truncate"
+                  style={{ color: '#6b7280', fontFamily: 'var(--font-vietnam)' }}
+                >
+                  {previewLink}
                 </span>
               </div>
               <button
-                onClick={() => navigator.clipboard.writeText(`boutique.tg/p/${form.slug}`)}
-                className="flex-shrink-0 border border-gray-200 rounded-lg px-3 py-1.5 text-xs font-medium bg-white hover:bg-gray-100 transition"
-                style={{ color: '#1A1C1E' }}
+                onClick={handleCopy}
+                disabled={!form.slug}
+                className="flex-shrink-0 rounded-lg px-3 py-1.5 text-xs font-bold transition-all duration-200"
+                style={{
+                  backgroundColor: copied ? '#006A4E' : '#fff',
+                  color: copied ? '#fff' : '#1A1C1E',
+                  border: copied ? '1px solid #006A4E' : '1px solid #e5e7eb',
+                  fontFamily: 'var(--font-jakarta)',
+                }}
               >
-                Copier
+                {copied ? '✓ Copié !' : 'Copier'}
               </button>
             </div>
           </div>
@@ -328,12 +382,21 @@ export default function NewProductPage() {
           onClick={handleSubmit}
           disabled={loading}
           className="w-full flex items-center justify-center gap-2 py-4 rounded-xl text-white text-sm font-semibold transition"
-          style={{ backgroundColor: loading ? '#4a9a7e' : '#006A4E' }}
+          style={{ backgroundColor: loading ? '#4a9a7e' : '#006A4E', fontFamily: 'var(--font-jakarta)' }}
         >
-          <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-          </svg>
-          {loading ? 'Publication...' : 'Publier le produit'}
+          {loading ? (
+            <div
+              className="w-4 h-4 rounded-full border-2 border-t-transparent animate-spin"
+              style={{ borderColor: '#fff', borderTopColor: 'transparent' }}
+            />
+          ) : (
+            <>
+              <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+              </svg>
+              Publier le produit
+            </>
+          )}
         </button>
       </div>
 

@@ -102,10 +102,10 @@ function StatutBadge({ statut }: { statut: string }) {
 
 function BottomNav({ active }: { active: 'home' | 'orders' | 'products' | 'profile' }) {
   const items = [
-    { key: 'home',     label: 'Home',     href: '/dashboard',          icon: HomeIcon },
-    { key: 'orders',   label: 'Orders',   href: '/dashboard/orders',   icon: OrdersIcon },
-    { key: 'products', label: 'Products', href: '/dashboard/products', icon: ProductsIcon },
-    { key: 'profile',  label: 'Profile',  href: '/dashboard/profile',  icon: ProfileIcon },
+    { key: 'home',     label: 'Accueil',     href: '/dashboard',          icon: HomeIcon },
+    { key: 'orders',   label: 'Commandes',   href: '/dashboard/orders',   icon: OrdersIcon },
+    { key: 'products', label: 'Produits', href: '/dashboard/products', icon: ProductsIcon },
+    { key: 'profile',  label: 'Profil',  href: '/dashboard/profile',  icon: ProfileIcon },
   ] as const
 
   return (
