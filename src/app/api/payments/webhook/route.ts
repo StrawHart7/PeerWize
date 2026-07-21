@@ -8,6 +8,8 @@ export async function POST(req: NextRequest) {
     const event = body?.name
     const transaction = body?.entity
 
+    console.log('Webhook payload:', JSON.stringify({ event, fedaStatut: transaction?.status, body }))
+
     if (!event || !transaction) {
       return NextResponse.json({ error: 'Payload invalide.' }, { status: 400 })
     }
