@@ -11,7 +11,6 @@ import {
   CheckCircle2,
   Image as ImageIcon
 } from "lucide-react";
-import Image from "next/image";
 
 interface Product {
   id: string;
@@ -19,6 +18,7 @@ interface Product {
   description: string | null;
   prix_fcfa: number;
   photo_url: string | null;
+  photos: string[] | null;
   slug: string;
   actif: boolean;
   seller_id: string;
@@ -37,6 +37,10 @@ export default function EditProductPage() {
   const [product, setProduct] = useState<Product | null>(null);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
+  const [startX, setStartX] = useState(0);
+  const [offsetX, setOffsetX] = useState(0);
   
   // Formulaire
   const [form, setForm] = useState({
@@ -46,10 +50,10 @@ export default function EditProductPage() {
     actif: true,
   });
   
-  // Photo
-  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
-  const [photoFile, setPhotoFile] = useState<File | null>(null);
-  const [existingPhotoUrl, setExistingPhotoUrl] = useState<string | null>(null);
+  // Photos
+  const [photoFiles, setPhotoFiles] = useState<File[]>([]);
+  const [photoPreviews, setPhotoPreviews] = useState<string[]>([]);
+  const [existingPhotos, setExistingPhotos] = useState<string[]>([]);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
 
   // Charger le produit
@@ -69,7 +73,7 @@ export default function EditProductPage() {
 
         const { data, error } = await supabase
           .from("products")
-          .select("id, nom, description, prix_fcfa, photo_url, slug, actif, seller_id")
+          .select("id, nom, description, prix_fcfa, photo_url, photos, slug, actif, seller_id")
           .eq("slug", slug)
           .single();
 
@@ -79,7 +83,6 @@ export default function EditProductPage() {
           return;
         }
 
-        // Vérifier que le produit appartient au vendeur connecté
         if (data.seller_id !== user.id) {
           toast("error", "Vous n'êtes pas autorisé à modifier ce produit");
           router.push("/dashboard/products");
@@ -93,8 +96,10 @@ export default function EditProductPage() {
           prix_fcfa: String(data.prix_fcfa),
           actif: data.actif,
         });
-        setExistingPhotoUrl(data.photo_url);
-        setPhotoPreview(data.photo_url);
+        
+        const existing = data.photos || (data.photo_url ? [data.photo_url] : []);
+        setExistingPhotos(existing);
+        setPhotoPreviews(existing);
       } catch (err) {
         console.error("Erreur chargement produit:", err);
         setError("Impossible de charger le produit");
@@ -106,18 +111,104 @@ export default function EditProductPage() {
     loadProduct();
   }, [slug, supabase, router, toast]);
 
-  // Gérer l'upload de la photo
-  const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    
-    if (file.size > 5 * 1024 * 1024) {
-      setError("La photo ne doit pas dépasser 5MB.");
-      return;
+  // Gérer l'upload des photos
+  const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    const newFiles: File[] = [];
+    const newPreviews: string[] = [];
+
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      if (file.size > 5 * 1024 * 1024) {
+        setError(`La photo "${file.name}" dépasse 5MB.`);
+        continue;
+      }
+      newFiles.push(file);
+      newPreviews.push(URL.createObjectURL(file));
     }
 
-    setPhotoFile(file);
-    setPhotoPreview(URL.createObjectURL(file));
+    if (newFiles.length > 0) {
+      setPhotoFiles(prev => [...prev, ...newFiles]);
+      setPhotoPreviews(prev => [...prev, ...newPreviews]);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  const removePhoto = (index: number) => {
+    if (index < existingPhotos.length) {
+      setExistingPhotos(prev => prev.filter((_, i) => i !== index));
+      setPhotoPreviews(prev => prev.filter((_, i) => i !== index));
+    } else {
+      const newIndex = index - existingPhotos.length;
+      setPhotoFiles(prev => prev.filter((_, i) => i !== newIndex));
+      setPhotoPreviews(prev => prev.filter((_, i) => i !== index));
+    }
+    
+    if (currentPhotoIndex >= index && currentPhotoIndex > 0) {
+      setCurrentPhotoIndex(prev => prev - 1);
+    }
+  };
+
+  // ── Carousel navigation ──
+  const handleTouchStart = (e: React.TouchEvent) => {
+    setStartX(e.targetTouches[0].clientX);
+    setIsDragging(true);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!isDragging) return;
+    setOffsetX(e.targetTouches[0].clientX - startX);
+  };
+
+  const handleTouchEnd = () => {
+    if (!isDragging) return;
+    setIsDragging(false);
+    const allPhotos = [...photoPreviews];
+    if (Math.abs(offsetX) > 50) {
+      if (offsetX < 0 && currentPhotoIndex < allPhotos.length - 1) {
+        setCurrentPhotoIndex(currentPhotoIndex + 1);
+      } else if (offsetX > 0 && currentPhotoIndex > 0) {
+        setCurrentPhotoIndex(currentPhotoIndex - 1);
+      }
+    }
+    setOffsetX(0);
+    setStartX(0);
+  };
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setStartX(e.clientX);
+    setIsDragging(true);
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!isDragging) return;
+    setOffsetX(e.clientX - startX);
+  };
+
+  const handleMouseUp = () => {
+    if (!isDragging) return;
+    setIsDragging(false);
+    const allPhotos = [...photoPreviews];
+    if (Math.abs(offsetX) > 50) {
+      if (offsetX < 0 && currentPhotoIndex < allPhotos.length - 1) {
+        setCurrentPhotoIndex(currentPhotoIndex + 1);
+      } else if (offsetX > 0 && currentPhotoIndex > 0) {
+        setCurrentPhotoIndex(currentPhotoIndex - 1);
+      }
+    }
+    setOffsetX(0);
+    setStartX(0);
+  };
+
+  const handleMouseLeave = () => {
+    if (isDragging) {
+      setIsDragging(false);
+      setOffsetX(0);
+      setStartX(0);
+    }
   };
 
   // Gérer la soumission
@@ -142,30 +233,32 @@ export default function EditProductPage() {
         return;
       }
 
-      let photo_url = existingPhotoUrl;
+      let allPhotos = [...existingPhotos];
 
-      // Nouvelle photo uploadée
-      if (photoFile) {
+      if (photoFiles.length > 0) {
         setUploadingPhoto(true);
-        const ext = photoFile.name.split(".").pop();
-        const path = `${user.id}/${product.slug}-${Date.now()}.${ext}`;
-        
-        const { error: uploadError } = await supabase.storage
-          .from("products")
-          .upload(path, photoFile);
+        for (let i = 0; i < photoFiles.length; i++) {
+          const file = photoFiles[i];
+          const ext = file.name.split(".").pop();
+          const path = `${user.id}/${product.slug}-${Date.now()}-${i}.${ext}`;
+          
+          const { error: uploadError } = await supabase.storage
+            .from("products")
+            .upload(path, file);
 
-        if (uploadError) {
-          setError("Erreur upload photo : " + uploadError.message);
-          setSaving(false);
-          setUploadingPhoto(false);
-          return;
+          if (uploadError) {
+            setError("Erreur upload photo : " + uploadError.message);
+            setSaving(false);
+            setUploadingPhoto(false);
+            return;
+          }
+
+          const { data: urlData } = supabase.storage
+            .from("products")
+            .getPublicUrl(path);
+
+          allPhotos.push(urlData.publicUrl);
         }
-
-        const { data: urlData } = supabase.storage
-          .from("products")
-          .getPublicUrl(path);
-
-        photo_url = urlData.publicUrl;
         setUploadingPhoto(false);
       }
 
@@ -175,7 +268,8 @@ export default function EditProductPage() {
           nom: form.nom.trim(),
           description: form.description.trim(),
           prix_fcfa: parseInt(form.prix_fcfa),
-          photo_url: photo_url,
+          photos: allPhotos,
+          photo_url: allPhotos[0] || null,
           actif: form.actif,
         })
         .eq("id", product.id);
@@ -192,7 +286,6 @@ export default function EditProductPage() {
     }
   };
 
-  // Fermer le modal (retour à la liste)
   const handleClose = () => {
     router.push("/dashboard/products");
   };
@@ -204,6 +297,8 @@ export default function EditProductPage() {
       </div>
     );
   }
+
+  const allPhotos = [...photoPreviews];
 
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-end justify-center">
@@ -222,7 +317,6 @@ export default function EditProductPage() {
         </div>
 
         <form onSubmit={handleSubmit}>
-          {/* Erreur */}
           {error && (
             <div className="mb-4 p-3 bg-red-50 text-tertiary rounded-lg text-sm font-vietnam flex items-center gap-2">
               <AlertCircle className="w-4 h-4 flex-shrink-0" />
@@ -230,7 +324,6 @@ export default function EditProductPage() {
             </div>
           )}
 
-          {/* Succès */}
           {success && (
             <div className="mb-4 p-3 bg-green-50 text-primary rounded-lg text-sm font-vietnam flex items-center gap-2">
               <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
@@ -238,60 +331,100 @@ export default function EditProductPage() {
             </div>
           )}
 
-          {/* Photo */}
+          {/* Photos - Carousel avec swipe/drag */}
           <div className="mb-4">
             <label className="block text-sm font-medium text-neutral mb-1.5 font-vietnam">
-              Photo du produit
+              Photos du produit
             </label>
             <input
               ref={fileInputRef}
               type="file"
               accept="image/jpeg,image/png,image/webp"
               onChange={handlePhotoChange}
+              multiple
               className="hidden"
             />
-            <div
-              onClick={() => fileInputRef.current?.click()}
-              className="relative w-full rounded-xl overflow-hidden cursor-pointer"
-              style={{ height: "10rem", backgroundColor: "#f9fafb", border: photoPreview ? "none" : "2px dashed #d1d5db" }}
-            >
-              {photoPreview ? (
-                <>
-                  <div
-                    className="absolute inset-0"
-                    style={{
-                      backgroundImage: `url(${photoPreview})`,
-                      backgroundSize: "cover",
-                      backgroundPosition: "center",
-                      filter: "blur(16px) brightness(0.6)",
-                      transform: "scale(1.15)",
-                    }}
-                  />
-                  <img
-                    src={photoPreview}
-                    alt="preview"
-                    className="absolute inset-0 w-full h-full object-contain"
-                    style={{ zIndex: 1 }}
-                  />
-                  <div
-                    className="absolute bottom-2 right-2 px-2 py-1 rounded-md text-xs text-white"
-                    style={{ backgroundColor: "rgba(0,0,0,0.55)", zIndex: 2 }}
-                  >
-                    Changer
-                  </div>
-                </>
-              ) : (
-                <div className="flex flex-col items-center justify-center h-full gap-2">
-                  <ImageIcon className="w-8 h-8 text-gray-400" />
-                  <span className="text-sm font-medium text-gray-500 font-vietnam">
-                    Appuyez pour ajouter une photo
-                  </span>
-                  <span className="text-xs text-gray-400 font-vietnam">
-                    JPG, PNG, WEBP (Max 5MB)
-                  </span>
+            
+            {allPhotos.length > 0 ? (
+              <div 
+                className="relative w-full rounded-xl overflow-hidden select-none"
+                style={{ height: "12rem", backgroundColor: "#f9fafb", cursor: "grab" }}
+                onTouchStart={handleTouchStart}
+                onTouchMove={handleTouchMove}
+                onTouchEnd={handleTouchEnd}
+                onMouseDown={handleMouseDown}
+                onMouseMove={handleMouseMove}
+                onMouseUp={handleMouseUp}
+                onMouseLeave={handleMouseLeave}
+              >
+                <div 
+                  className="flex h-full"
+                  style={{
+                    transform: `translateX(${isDragging ? offsetX : 0}px)`,
+                    transition: !isDragging ? "transform 0.3s ease-out" : "none",
+                  }}
+                >
+                  {allPhotos.map((photo, index) => (
+                    <img
+                      key={index}
+                      src={photo}
+                      alt={`Photo ${index + 1}`}
+                      className="h-full w-full object-contain flex-shrink-0"
+                      draggable={false}
+                      style={{ userSelect: "none", pointerEvents: "none" }}
+                    />
+                  ))}
                 </div>
-              )}
-            </div>
+
+                {allPhotos.length > 1 && (
+                  <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1.5 pointer-events-none">
+                    {allPhotos.map((_, index) => (
+                      <span
+                        key={index}
+                        className="block rounded-full transition-all"
+                        style={{
+                          width: index === currentPhotoIndex ? "8px" : "4px",
+                          height: "4px",
+                          backgroundColor: index === currentPhotoIndex ? "#006A4E" : "rgba(255,255,255,0.4)",
+                        }}
+                      />
+                    ))}
+                  </div>
+                )}
+
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); removePhoto(currentPhotoIndex) }}
+                  className="absolute top-2 left-2 w-7 h-7 rounded-full flex items-center justify-center text-white"
+                  style={{ backgroundColor: "rgba(210,16,52,0.8)", zIndex: 2 }}
+                >
+                  <X className="w-4 h-4" />
+                </button>
+
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); fileInputRef.current?.click() }}
+                  className="absolute bottom-2 right-2 px-2 py-1 rounded-md text-xs text-white cursor-pointer"
+                  style={{ backgroundColor: "rgba(0,0,0,0.55)", zIndex: 2 }}
+                >
+                  Ajouter +
+                </button>
+              </div>
+            ) : (
+              <div
+                onClick={() => fileInputRef.current?.click()}
+                className="w-full rounded-xl flex flex-col items-center justify-center cursor-pointer"
+                style={{ height: "10rem", backgroundColor: "#f9fafb", border: "2px dashed #d1d5db" }}
+              >
+                <ImageIcon className="w-8 h-8 text-gray-400" />
+                <span className="text-sm font-medium text-gray-500 font-vietnam mt-2">
+                  Appuyez pour ajouter des photos
+                </span>
+                <span className="text-xs text-gray-400 font-vietnam">
+                  JPG, PNG, WEBP (Max 5MB chacun)
+                </span>
+              </div>
+            )}
             {uploadingPhoto && (
               <p className="text-xs text-gray-400 mt-1 font-vietnam">
                 Upload en cours...
@@ -347,9 +480,6 @@ export default function EditProductPage() {
               placeholder="Décrivez les caractéristiques et l'état de votre produit..."
               className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent font-vietnam text-neutral resize-none"
             />
-            <p className="text-xs text-gray-400 mt-1 text-right font-vietnam">
-              {form.description.length}/500
-            </p>
           </div>
 
           {/* Slug - Lecture seule */}
@@ -368,9 +498,6 @@ export default function EditProductPage() {
                 fixe
               </span>
             </div>
-            <p className="text-xs text-gray-400 mt-1 font-vietnam">
-              Le lien ne change pas après création.
-            </p>
           </div>
 
           {/* Toggle actif */}

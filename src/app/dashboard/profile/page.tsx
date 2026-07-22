@@ -19,6 +19,7 @@ import {
   ShoppingBag,
   Package,
   Camera,
+  CheckCircle,
 } from "lucide-react";
 import { createClient } from "@/src/lib/supabase/client";
 
@@ -52,6 +53,7 @@ interface Seller {
   email: string;
   whatsapp: string;
   avatar_url?: string | null;
+  shop_name?: string | null;
 }
 
 // ── Composant item de menu ──────────────────────────────────────────────────
@@ -151,7 +153,7 @@ export default function ProfilePage() {
 
       const { data } = await supabase
         .from("sellers")
-        .select("id, nom, email, whatsapp, avatar_url")
+        .select("id, nom, email, whatsapp, avatar_url, shop_name")
         .eq("id", user.id)
         .single();
 
@@ -281,9 +283,9 @@ export default function ProfilePage() {
         {/* Boutique vérifiée */}
         <div className="flex items-center gap-1 mt-0.5">
           <span className="text-sm text-gray-500 font-[var(--font-vietnam)]">
-            Boutique Togo
+            {seller?.shop_name ?? "Boutique Togo"}
           </span>
-          <span className="text-[#006A4E]">✓</span>
+          <CheckCircle size={14} color="#006A4E" />
         </div>
       </div>
 

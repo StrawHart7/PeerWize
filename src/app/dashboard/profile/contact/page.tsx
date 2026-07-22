@@ -5,6 +5,7 @@ import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { createClient } from "@/src/lib/supabase/client";
+import { useToast } from "@/src/components/ToastProvider"; // ✅ Ajouté
 import { 
   ArrowLeft, 
   Mail, 
@@ -12,8 +13,6 @@ import {
   MessageSquare,
   Send,
   Clock,
-  CheckCircle2,
-  AlertCircle,
   Loader2,
   ChevronDown,
   Check
@@ -102,7 +101,6 @@ function SubjectDropdown({
 
       {isOpen && (
         <div className="absolute left-0 right-0 mt-1.5 bg-white border border-gray-200 rounded-xl shadow-lg z-50 max-h-80 flex flex-col animate-dropdown">
-          {/* Barre de recherche */}
           <div className="p-3 border-b border-gray-100">
             <div className="relative">
               <input
@@ -116,7 +114,6 @@ function SubjectDropdown({
             </div>
           </div>
 
-          {/* Liste des options */}
           <div className="overflow-y-auto flex-1">
             {filteredOptions.length > 0 ? (
               filteredOptions.map((option) => (
@@ -143,7 +140,6 @@ function SubjectDropdown({
             )}
           </div>
 
-          {/* Footer avec compteur */}
           <div className="p-2 border-t border-gray-100 bg-gray-50 rounded-b-xl">
             <p className="text-xs text-gray-400 text-center font-vietnam">
               {filteredOptions.length} sujet{filteredOptions.length > 1 ? "s" : ""} disponible{filteredOptions.length > 1 ? "s" : ""}
@@ -158,36 +154,29 @@ function SubjectDropdown({
 export default function ContactPage() {
   const router = useRouter();
   const supabase = createClient();
+  const { toast } = useToast(); // ✅ Ajouté
   
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState<FormData>({
     subject: "",
     message: "",
   });
-  const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
 
   // Gérer l'envoi du message
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!formData.subject) {
-      setToast({ 
-        message: "Veuillez sélectionner un sujet", 
-        type: "error" 
-      });
+      toast("error", "Veuillez sélectionner un sujet"); // ✅ Remplacé
       return;
     }
     
     if (!formData.message.trim()) {
-      setToast({ 
-        message: "Veuillez écrire un message", 
-        type: "error" 
-      });
+      toast("error", "Veuillez écrire un message"); // ✅ Remplacé
       return;
     }
 
     setLoading(true);
-    setToast(null);
 
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -203,10 +192,7 @@ export default function ContactPage() {
 
       if (error) throw error;
 
-      setToast({ 
-        message: "Message envoyé avec succès ! Nous vous répondrons dans les plus brefs délais.", 
-        type: "success" 
-      });
+      toast("success", "Message envoyé avec succès ! Nous vous répondrons dans les plus brefs délais."); // ✅ Remplacé
       
       setFormData({
         subject: "",
@@ -214,10 +200,7 @@ export default function ContactPage() {
       });
     } catch (err) {
       console.error("Erreur:", err);
-      setToast({ 
-        message: "Impossible d'envoyer le message. Veuillez réessayer.", 
-        type: "error" 
-      });
+      toast("error", "Impossible d'envoyer le message. Veuillez réessayer."); // ✅ Remplacé
     } finally {
       setLoading(false);
     }
@@ -246,32 +229,6 @@ export default function ContactPage() {
           </h1>
         </div>
       </div>
-
-      {/* Toast */}
-      {toast && (
-        <div className={`fixed top-4 left-4 right-4 z-50 p-4 rounded-xl shadow-lg flex items-center gap-3 animate-slide-down ${
-          toast.type === "success" 
-            ? "bg-green-50 border border-green-200" 
-            : "bg-red-50 border border-red-200"
-        }`}>
-          {toast.type === "success" ? (
-            <CheckCircle2 className="w-5 h-5 text-primary flex-shrink-0" />
-          ) : (
-            <AlertCircle className="w-5 h-5 text-tertiary flex-shrink-0" />
-          )}
-          <p className={`flex-1 text-sm font-vietnam ${
-            toast.type === "success" ? "text-primary" : "text-tertiary"
-          }`}>
-            {toast.message}
-          </p>
-          <button
-            onClick={() => setToast(null)}
-            className="p-1 hover:bg-gray-200 rounded-full transition-colors"
-          >
-            ✕
-          </button>
-        </div>
-      )}
 
       {/* Contenu */}
       <div className="max-w-lg mx-auto px-4 py-6">
@@ -428,16 +385,6 @@ export default function ContactPage() {
       </div>
 
       <style jsx>{`
-        @keyframes slide-down {
-          from {
-            transform: translateY(-20px);
-            opacity: 0;
-          }
-          to {
-            transform: translateY(0);
-            opacity: 1;
-          }
-        }
         @keyframes dropdown {
           from {
             transform: translateY(-8px);
@@ -447,9 +394,6 @@ export default function ContactPage() {
             transform: translateY(0);
             opacity: 1;
           }
-        }
-        .animate-slide-down {
-          animation: slide-down 0.3s ease-out;
         }
         .animate-dropdown {
           animation: dropdown 0.2s ease-out;

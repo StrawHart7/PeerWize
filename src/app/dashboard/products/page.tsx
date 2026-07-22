@@ -13,6 +13,7 @@ type Product = {
   nom: string
   prix_fcfa: number
   photo_url: string | null
+  photos: string[] | null
   slug: string
   actif: boolean
 }
@@ -21,6 +22,140 @@ function formatFCFA(amount: number): string {
   return amount.toLocaleString('fr-FR').replace(/\s/g, '.') + ' FCFA'
 }
 
+// ─── Photo Carousel avec Swipe + Drag ──────────────────────────────────────
+function ProductPhotoCarousel({ photos, productName }: { photos: string[] | null; productName: string }) {
+  const [currentIndex, setCurrentIndex] = useState(0)
+  const [isDragging, setIsDragging] = useState(false)
+  const [startX, setStartX] = useState(0)
+  const [offsetX, setOffsetX] = useState(0)
+  
+  const allPhotos = photos && photos.length > 0 ? photos : []
+  const hasPhotos = allPhotos.length > 0
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    setStartX(e.targetTouches[0].clientX)
+    setIsDragging(true)
+  }
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!isDragging) return
+    setOffsetX(e.targetTouches[0].clientX - startX)
+  }
+
+  const handleTouchEnd = () => {
+    if (!isDragging) return
+    setIsDragging(false)
+    
+    if (Math.abs(offsetX) > 50) {
+      if (offsetX < 0 && currentIndex < allPhotos.length - 1) {
+        setCurrentIndex(currentIndex + 1)
+      } else if (offsetX > 0 && currentIndex > 0) {
+        setCurrentIndex(currentIndex - 1)
+      }
+    }
+    setOffsetX(0)
+    setStartX(0)
+  }
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault()
+    setStartX(e.clientX)
+    setIsDragging(true)
+  }
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!isDragging) return
+    setOffsetX(e.clientX - startX)
+  }
+
+  const handleMouseUp = () => {
+    if (!isDragging) return
+    setIsDragging(false)
+    
+    if (Math.abs(offsetX) > 50) {
+      if (offsetX < 0 && currentIndex < allPhotos.length - 1) {
+        setCurrentIndex(currentIndex + 1)
+      } else if (offsetX > 0 && currentIndex > 0) {
+        setCurrentIndex(currentIndex - 1)
+      }
+    }
+    setOffsetX(0)
+    setStartX(0)
+  }
+
+  const handleMouseLeave = () => {
+    if (isDragging) {
+      setIsDragging(false)
+      setOffsetX(0)
+      setStartX(0)
+    }
+  }
+
+  if (!hasPhotos) {
+    return (
+      <div className="w-full flex items-center justify-center" style={{ height: 200, backgroundColor: '#f5f5f5' }}>
+        <svg width="36" height="36" viewBox="0 0 24 24" fill="none">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" stroke="#9ca3af" />
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" stroke="#9ca3af" />
+        </svg>
+      </div>
+    )
+  }
+
+  const translateX = isDragging ? offsetX : 0
+  const isTransitioning = !isDragging
+
+  return (
+    <div 
+      className="relative w-full overflow-hidden select-none"
+      style={{ height: 200, backgroundColor: '#f5f5f5', cursor: 'grab' }}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+      onMouseDown={handleMouseDown}
+      onMouseMove={handleMouseMove}
+      onMouseUp={handleMouseUp}
+      onMouseLeave={handleMouseLeave}
+    >
+      <div 
+        className="flex h-full"
+        style={{
+          transform: `translateX(${translateX}px)`,
+          transition: isTransitioning ? 'transform 0.3s ease-out' : 'none',
+        }}
+      >
+        {allPhotos.map((photo, index) => (
+          <img
+            key={index}
+            src={photo}
+            alt={`${productName} - ${index + 1}`}
+            className="h-full w-full object-contain flex-shrink-0 p-3"
+            draggable={false}
+            style={{ userSelect: 'none', pointerEvents: 'none' }}
+          />
+        ))}
+      </div>
+
+      {allPhotos.length > 1 && (
+        <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1.5 pointer-events-none">
+          {allPhotos.map((_, index) => (
+            <span
+              key={index}
+              className="block rounded-full transition-all"
+              style={{
+                width: index === currentIndex ? '8px' : '4px',
+                height: '4px',
+                backgroundColor: index === currentIndex ? '#006A4E' : 'rgba(255,255,255,0.4)',
+              }}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── Bottom Nav ── (inchangé)
 function BottomNav() {
   const pathname = usePathname()
   const items = [
@@ -84,7 +219,7 @@ function BottomNav() {
   )
 }
 
-// ── Menu 3 points ────────────────────────────────────────────────────────────
+// ── Menu 3 points ── (inchangé)
 function ProductMenu({
   product,
   onDelete,
@@ -100,7 +235,6 @@ function ProductMenu({
   const supabase = createClient()
   const { toast } = useToast()
 
-  // Fermer si clic extérieur
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
@@ -189,7 +323,7 @@ export default function ProductsPage() {
 
       const { data } = await supabase
         .from('products')
-        .select('id, nom, prix_fcfa, photo_url, slug, actif')
+        .select('id, nom, prix_fcfa, photo_url, photos, slug, actif')
         .eq('seller_id', user.id)
         .order('created_at', { ascending: false })
 
@@ -212,7 +346,7 @@ export default function ProductsPage() {
   return (
     <div className="min-h-screen bg-white pb-24">
 
-      {/* Header vert — réduit */}
+      {/* Header vert */}
       <div className="px-5 pt-10 pb-5" style={{ backgroundColor: '#006A4E' }}>
         <div className="flex items-center justify-between mb-4">
           <img src="/PeerWize.svg" alt="PeerWize" className="h-8 w-8 rounded-lg" />
@@ -283,53 +417,48 @@ export default function ProductsPage() {
           </div>
         ) : (
           <div className="space-y-4">
-            {filtered.map(product => (
-              <div
-                key={product.id}
-                className="rounded-2xl overflow-visible"
-                style={{ border: '1px solid #f3f4f6', backgroundColor: '#fff' }}
-              >
-                {/* Image — cliquable vers page publique */}
-                <Link href={`/p/${product.slug}`} target="_blank">
-                  <div className="w-full flex items-center justify-center overflow-hidden" style={{ height: 200, backgroundColor: '#f5f5f5' }}>
-                    {product.photo_url ? (
-                      <img src={product.photo_url} alt={product.nom} className="h-full w-full object-contain" style={{ padding: '12px' }} />
-                    ) : (
-                      <svg width="36" height="36" viewBox="0 0 24 24" fill="none">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" stroke="#9ca3af" />
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" stroke="#9ca3af" />
-                      </svg>
-                    )}
-                  </div>
-                </Link>
+            {filtered.map(product => {
+              const productPhotos = product.photos && product.photos.length > 0 
+                ? product.photos 
+                : (product.photo_url ? [product.photo_url] : null)
+              
+              return (
+                <div
+                  key={product.id}
+                  className="rounded-2xl overflow-visible"
+                  style={{ border: '1px solid #f3f4f6', backgroundColor: '#fff' }}
+                >
+                  <Link href={`/p/${product.slug}`} target="_blank">
+                    <ProductPhotoCarousel 
+                      photos={productPhotos}
+                      productName={product.nom}
+                    />
+                  </Link>
 
-                {/* Infos + actions */}
-                <div className="px-4 py-3 flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-bold mb-0.5" style={{ color: '#1A1C1E', fontFamily: 'var(--font-jakarta)' }}>
-                      {product.nom}
-                    </p>
-                    <span className="text-base font-bold" style={{ color: '#006A4E', fontFamily: 'var(--font-jakarta)' }}>
-                      {formatFCFA(product.prix_fcfa)}
-                    </span>
-                  </div>
+                  <div className="px-4 py-3 flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-bold mb-0.5" style={{ color: '#1A1C1E', fontFamily: 'var(--font-jakarta)' }}>
+                        {product.nom}
+                      </p>
+                      <span className="text-base font-bold" style={{ color: '#006A4E', fontFamily: 'var(--font-jakarta)' }}>
+                        {formatFCFA(product.prix_fcfa)}
+                      </span>
+                    </div>
 
-                  <div className="flex items-center gap-1">
-                    {/* Partager */}
-                    <Link
-                      href={`/dashboard/products/${product.slug}/share`}
-                      onClick={e => e.stopPropagation()}
-                      className="w-8 h-8 flex items-center justify-center rounded-full active:bg-gray-100 transition-colors"
-                    >
-                      <Share2 size={17} color="#006A4E" />
-                    </Link>
-
-                    {/* 3 points */}
-                    <ProductMenu product={product} onDelete={handleProductDeleted} />
+                    <div className="flex items-center gap-1">
+                      <Link
+                        href={`/dashboard/products/${product.slug}/share`}
+                        onClick={e => e.stopPropagation()}
+                        className="w-8 h-8 flex items-center justify-center rounded-full active:bg-gray-100 transition-colors"
+                      >
+                        <Share2 size={17} color="#006A4E" />
+                      </Link>
+                      <ProductMenu product={product} onDelete={handleProductDeleted} />
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         )}
       </div>

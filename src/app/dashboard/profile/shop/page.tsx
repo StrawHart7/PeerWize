@@ -4,6 +4,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/src/lib/supabase/client";
+import { useToast } from "@/src/components/ToastProvider"; // ✅ Ajouté
 import { 
   ArrowLeft, 
   Store, 
@@ -12,7 +13,6 @@ import {
   MapPin, 
   Globe,
   Loader2,
-  CheckCircle2,
   AlertCircle
 } from "lucide-react";
 
@@ -44,6 +44,7 @@ const categories = [
 export default function ShopSettingsPage() {
   const router = useRouter();
   const supabase = createClient();
+  const { toast } = useToast(); // ✅ Ajouté
   
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -56,7 +57,6 @@ export default function ShopSettingsPage() {
     shop_visible: true,
   });
   const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
 
   // Charger les données du vendeur
   useEffect(() => {
@@ -88,14 +88,14 @@ export default function ShopSettingsPage() {
         }
       } catch (err) {
         console.error("Erreur chargement boutique:", err);
-        setError("Impossible de charger les paramètres de la boutique");
+        toast("error", "Impossible de charger les paramètres de la boutique"); // ✅ Remplacé
       } finally {
         setLoading(false);
       }
     };
 
     fetchSeller();
-  }, [supabase, router]);
+  }, [supabase, router, toast]);
 
   // Gérer la soumission du formulaire
   const handleSubmit = async (e: React.FormEvent) => {
@@ -104,7 +104,6 @@ export default function ShopSettingsPage() {
 
     setSaving(true);
     setError("");
-    setSuccess("");
 
     try {
       const { error } = await supabase
@@ -120,10 +119,10 @@ export default function ShopSettingsPage() {
 
       if (error) throw error;
 
-      setSuccess("Paramètres de la boutique mis à jour avec succès !");
+      toast("success", "Paramètres de la boutique mis à jour avec succès !"); // ✅ Remplacé
     } catch (err) {
       console.error("Erreur mise à jour:", err);
-      setError("Impossible de mettre à jour les paramètres de la boutique");
+      toast("error", "Impossible de mettre à jour les paramètres de la boutique"); // ✅ Remplacé
     } finally {
       setSaving(false);
     }
@@ -167,12 +166,6 @@ export default function ShopSettingsPage() {
             <div className="p-4 bg-red-50 border border-red-200 rounded-xl flex items-start gap-3">
               <AlertCircle className="w-5 h-5 text-tertiary flex-shrink-0 mt-0.5" />
               <p className="text-sm text-tertiary font-vietnam">{error}</p>
-            </div>
-          )}
-          {success && (
-            <div className="p-4 bg-green-50 border border-green-200 rounded-xl flex items-start gap-3">
-              <CheckCircle2 className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
-              <p className="text-sm text-primary font-vietnam">{success}</p>
             </div>
           )}
 

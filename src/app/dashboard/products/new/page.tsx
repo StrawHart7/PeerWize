@@ -13,10 +13,10 @@ export default function NewProductPage() {
 
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [photoPreview, setPhotoPreview] = useState<string | null>(null)
-  const [photoFile, setPhotoFile] = useState<File | null>(null)
+  const [photos, setPhotos] = useState<{ file: File; preview: string }[]>([])
   const [actif, setActif] = useState(true)
   const [copied, setCopied] = useState(false)
+  const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0)
   const [form, setForm] = useState({
     nom: '',
     description: '',
@@ -47,14 +47,37 @@ export default function NewProductPage() {
   }
 
   function handlePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
-    if (!file) return
-    if (file.size > 5 * 1024 * 1024) {
-      setError('La photo ne doit pas dépasser 5MB.')
-      return
+    const files = e.target.files
+    if (!files || files.length === 0) return
+
+    const newPhotos: { file: File; preview: string }[] = []
+    let hasError = false
+
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i]
+      if (file.size > 5 * 1024 * 1024) {
+        setError(`La photo "${file.name}" dépasse 5MB.`)
+        hasError = true
+        continue
+      }
+      newPhotos.push({
+        file,
+        preview: URL.createObjectURL(file),
+      })
     }
-    setPhotoFile(file)
-    setPhotoPreview(URL.createObjectURL(file))
+
+    if (!hasError && newPhotos.length > 0) {
+      setPhotos(prev => [...prev, ...newPhotos])
+      // Reset l'input pour permettre de re-sélectionner les mêmes fichiers
+      if (fileInputRef.current) fileInputRef.current.value = ''
+    }
+  }
+
+  function removePhoto(index: number) {
+    setPhotos(prev => prev.filter((_, i) => i !== index))
+    if (currentPhotoIndex >= index && currentPhotoIndex > 0) {
+      setCurrentPhotoIndex(prev => prev - 1)
+    }
   }
 
   function handleCopy() {
@@ -73,7 +96,11 @@ export default function NewProductPage() {
       return
     }
 
-    // ✅ Fix : capturer le slug localement
+    if (photos.length === 0) {
+      setError('Ajoutez au moins une photo.')
+      return
+    }
+
     const currentSlug = form.slug
     setLoading(true)
 
@@ -85,7 +112,7 @@ export default function NewProductPage() {
       return
     }
 
-    // Vérifier unicité du slug (sécurité supplémentaire)
+    // Vérifier unicité du slug
     const { data: existing } = await supabase
       .from('products')
       .select('id')
@@ -93,7 +120,6 @@ export default function NewProductPage() {
       .single()
 
     if (existing) {
-      // Regénérer le slug avec un nouveau suffixe
       const newSlug = `${slugify(form.nom)}-${randomSuffix()}`
       setForm(prev => ({ ...prev, slug: newSlug }))
       setError('Conflit de lien détecté, réessayez.')
@@ -101,26 +127,35 @@ export default function NewProductPage() {
       return
     }
 
-    let photo_url = null
+    // Upload de toutes les photos
+    const photoUrls: string[] = []
+    let uploadError = false
 
-    if (photoFile) {
-      const ext = photoFile.name.split('.').pop()
-      const path = `${user.id}/${currentSlug}-${Date.now()}.${ext}`
-      const { error: uploadError } = await supabase.storage
+    for (let i = 0; i < photos.length; i++) {
+      const photo = photos[i]
+      const ext = photo.file.name.split('.').pop()
+      const path = `${user.id}/${currentSlug}-${Date.now()}-${i}.${ext}`
+
+      const { error } = await supabase.storage
         .from('products')
-        .upload(path, photoFile)
+        .upload(path, photo.file)
 
-      if (uploadError) {
-        setError('Erreur upload photo : ' + uploadError.message)
-        setLoading(false)
-        return
+      if (error) {
+        setError(`Erreur upload photo ${i + 1}: ${error.message}`)
+        uploadError = true
+        break
       }
 
       const { data: urlData } = supabase.storage
         .from('products')
         .getPublicUrl(path)
 
-      photo_url = urlData.publicUrl
+      photoUrls.push(urlData.publicUrl)
+    }
+
+    if (uploadError) {
+      setLoading(false)
+      return
     }
 
     const { data: seller } = await supabase
@@ -141,7 +176,8 @@ export default function NewProductPage() {
       description: form.description,
       prix_fcfa: parseInt(form.prix_fcfa),
       slug: currentSlug,
-      photo_url,
+      photo_url: photoUrls[0] || null,
+      photos: photoUrls, // Nouveau champ pour stocker toutes les photos
       actif,
     })
 
@@ -151,7 +187,6 @@ export default function NewProductPage() {
       return
     }
 
-    // ✅ Fix : redirection vers /share avec le slug capturé
     toast("success", "Produit publié avec succès !")
     router.push(`/dashboard/products/${currentSlug}/share`)
   }
@@ -159,6 +194,15 @@ export default function NewProductPage() {
   const previewLink = form.slug
     ? `${typeof window !== 'undefined' ? window.location.origin : ''}/p/${form.slug}`
     : '/p/votre-produit'
+
+  // Navigation du carousel
+  const goToPrev = () => {
+    setCurrentPhotoIndex(prev => (prev > 0 ? prev - 1 : photos.length - 1))
+  }
+
+  const goToNext = () => {
+    setCurrentPhotoIndex(prev => (prev < photos.length - 1 ? prev + 1 : 0))
+  }
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: '#1A1C1E' }}>
@@ -216,61 +260,125 @@ export default function NewProductPage() {
 
         <div className="space-y-6">
 
-          {/* Upload photo */}
+          {/* Upload photo - Multi avec carousel */}
           <div>
             <label className="block text-sm font-medium mb-2" style={{ color: '#006A4E' }}>
-              Photo du produit
+              Photos du produit
             </label>
             <input
               ref={fileInputRef}
               type="file"
-              accept="image/jpeg,image/png"
+              accept="image/jpeg,image/png,image/webp"
               onChange={handlePhotoChange}
+              multiple
               className="hidden"
             />
             <div
-              onClick={() => fileInputRef.current?.click()}
               className="relative w-full rounded-xl overflow-hidden cursor-pointer"
-              style={{ height: '13rem', backgroundColor: '#f9fafb', border: photoPreview ? 'none' : '2px dashed #d1d5db' }}
+              style={{ height: '13rem', backgroundColor: '#f9fafb', border: photos.length > 0 ? 'none' : '2px dashed #d1d5db' }}
             >
-              {photoPreview ? (
+              {photos.length > 0 ? (
                 <>
-                  <div
-                    className="absolute inset-0"
-                    style={{
-                      backgroundImage: `url(${photoPreview})`,
-                      backgroundSize: 'cover',
-                      backgroundPosition: 'center',
-                      filter: 'blur(16px) brightness(0.6)',
-                      transform: 'scale(1.15)',
-                    }}
-                  />
-                  <img
-                    src={photoPreview}
-                    alt="preview"
-                    className="absolute inset-0 w-full h-full object-contain"
-                    style={{ zIndex: 1 }}
-                  />
-                  <div
-                    className="absolute bottom-2 right-2 px-2 py-1 rounded-md text-xs text-white"
-                    style={{ backgroundColor: 'rgba(0,0,0,0.55)', zIndex: 2 }}
-                  >
-                    Changer
+                  {/* Image principale */}
+                  <div className="w-full h-full relative">
+                    <img
+                      src={photos[currentPhotoIndex].preview}
+                      alt={`Photo ${currentPhotoIndex + 1}`}
+                      className="w-full h-full object-contain"
+                      style={{ zIndex: 1, position: 'relative' }}
+                    />
+
+                    {/* Indicateur de nombre de photos */}
+                    <div
+                      className="absolute top-2 right-2 px-2 py-0.5 rounded-md text-xs text-white"
+                      style={{ backgroundColor: 'rgba(0,0,0,0.55)', zIndex: 2 }}
+                    >
+                      {currentPhotoIndex + 1}/{photos.length}
+                    </div>
+
+                    {/* Boutons navigation */}
+                    {photos.length > 1 && (
+                      <>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); goToPrev() }}
+                          className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full flex items-center justify-center text-white"
+                          style={{ backgroundColor: 'rgba(0,0,0,0.4)', zIndex: 2 }}
+                        >
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+                          </svg>
+                        </button>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); goToNext() }}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full flex items-center justify-center text-white"
+                          style={{ backgroundColor: 'rgba(0,0,0,0.4)', zIndex: 2 }}
+                        >
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                          </svg>
+                        </button>
+
+                        {/* Dots indicateurs */}
+                        <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1.5" style={{ zIndex: 2 }}>
+                          {photos.map((_, index) => (
+                            <button
+                              key={index}
+                              onClick={(e) => { e.stopPropagation(); setCurrentPhotoIndex(index) }}
+                              className="w-2 h-2 rounded-full transition-all"
+                              style={{
+                                backgroundColor: index === currentPhotoIndex ? '#006A4E' : 'rgba(255,255,255,0.5)',
+                                width: index === currentPhotoIndex ? '8px' : '6px',
+                                height: index === currentPhotoIndex ? '8px' : '6px',
+                              }}
+                            />
+                          ))}
+                        </div>
+                      </>
+                    )}
+
+                    {/* Bouton changer */}
+                    <div
+                      className="absolute bottom-2 right-2 px-2 py-1 rounded-md text-xs text-white cursor-pointer"
+                      style={{ backgroundColor: 'rgba(0,0,0,0.55)', zIndex: 2 }}
+                      onClick={(e) => { e.stopPropagation(); fileInputRef.current?.click() }}
+                    >
+                      Ajouter +
+                    </div>
+
+                    {/* Bouton supprimer la photo courante */}
+                    <button
+                      onClick={(e) => { e.stopPropagation(); removePhoto(currentPhotoIndex) }}
+                      className="absolute top-2 left-2 w-7 h-7 rounded-full flex items-center justify-center text-white"
+                      style={{ backgroundColor: 'rgba(210,16,52,0.8)', zIndex: 2 }}
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
                   </div>
                 </>
               ) : (
-                <div className="flex flex-col items-center justify-center h-full gap-2">
+                <div
+                  className="flex flex-col items-center justify-center h-full gap-2"
+                  onClick={() => fileInputRef.current?.click()}
+                >
                   <svg width="32" height="32" fill="none" viewBox="0 0 24 24" stroke="#006A4E" strokeWidth={1.5}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
                     <path strokeLinecap="round" strokeLinejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
                   </svg>
                   <span className="text-sm font-medium" style={{ color: '#006A4E' }}>
-                    Appuyez pour ajouter une photo
+                    Appuyez pour ajouter des photos
                   </span>
-                  <span className="text-xs text-gray-400">Format JPG, PNG (Max 5MB)</span>
+                  <span className="text-xs text-gray-400">JPG, PNG, WEBP (Max 5MB chacun)</span>
+                  <span className="text-xs text-gray-400">Sélectionnez plusieurs photos</span>
                 </div>
               )}
             </div>
+            {photos.length > 0 && (
+              <p className="text-xs text-gray-400 mt-1 font-vietnam">
+                {photos.length} photo{photos.length > 1 ? 's' : ''} sélectionnée{photos.length > 1 ? 's' : ''}
+              </p>
+            )}
           </div>
 
           {/* Nom */}

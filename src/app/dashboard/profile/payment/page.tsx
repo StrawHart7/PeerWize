@@ -5,6 +5,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { createClient } from "@/src/lib/supabase/client";
+import { useToast } from "@/src/components/ToastProvider"; // ✅ Ajouté
 import { 
   ArrowLeft, 
   Plus, 
@@ -33,7 +34,7 @@ interface Seller {
 
 // ── Icônes avec images ──────────────────────────────────────────────────────
 const MoovIcon = () => (
-  <div className="w-8 h-8 rounded-lg overflow-hidden bg-white border border-gray-200 flex items-center justify-center">
+  <div className="w-8 h-8 rounded-lg overflow-hidden bg-white flex items-center justify-center"> {/* ✅ Retiré border */}
     <Image
       src="/assets/payment/moov.png"
       alt="Moov Money"
@@ -45,7 +46,7 @@ const MoovIcon = () => (
 );
 
 const TogocelIcon = () => (
-  <div className="w-8 h-8 rounded-lg overflow-hidden bg-white border border-gray-200 flex items-center justify-center">
+  <div className="w-8 h-8 rounded-lg overflow-hidden bg-white flex items-center justify-center"> {/* ✅ Retiré border */}
     <Image
       src="/assets/payment/mixx.png"
       alt="Mixx by Yas"
@@ -75,6 +76,7 @@ const PROVIDERS = [
 export default function PaymentMethodsPage() {
   const router = useRouter();
   const supabase = createClient();
+  const { toast } = useToast(); // ✅ Ajouté
   
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -82,7 +84,6 @@ export default function PaymentMethodsPage() {
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
   const [showAddModal, setShowAddModal] = useState(false);
   const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
   const [newMethod, setNewMethod] = useState({
     provider: "moov",
     phone_number: "",
@@ -121,14 +122,14 @@ export default function PaymentMethodsPage() {
         }
       } catch (err) {
         console.error("Erreur chargement méthodes de paiement:", err);
-        setError("Impossible de charger vos méthodes de paiement");
+        toast("error", "Impossible de charger vos méthodes de paiement"); // ✅ Remplacé
       } finally {
         setLoading(false);
       }
     };
 
     fetchPaymentMethods();
-  }, [supabase, router]);
+  }, [supabase, router, toast]);
 
   // Ajouter une méthode de paiement
   const handleAddMethod = async (e: React.FormEvent) => {
@@ -137,13 +138,12 @@ export default function PaymentMethodsPage() {
 
     const cleanNumber = newMethod.phone_number.replace(/\s/g, "");
     if (cleanNumber.length !== 8) {
-      setError("Le numéro doit contenir 8 chiffres (ex: 90123456)");
+      toast("error", "Le numéro doit contenir 8 chiffres (ex: 90123456)"); // ✅ Remplacé
       return;
     }
 
     setSaving(true);
     setError("");
-    setSuccess("");
 
     try {
       const provider = PROVIDERS.find(p => p.id === newMethod.provider);
@@ -167,10 +167,10 @@ export default function PaymentMethodsPage() {
       setPaymentMethods([...paymentMethods, data]);
       setNewMethod({ provider: "moov", phone_number: "" });
       setShowAddModal(false);
-      setSuccess("Compte ajouté avec succès !");
+      toast("success", "Compte ajouté avec succès !"); // ✅ Remplacé
     } catch (err) {
       console.error("Erreur ajout méthode:", err);
-      setError("Impossible d'ajouter le compte");
+      toast("error", "Impossible d'ajouter le compte"); // ✅ Remplacé
     } finally {
       setSaving(false);
     }
@@ -190,10 +190,10 @@ export default function PaymentMethodsPage() {
       if (error) throw error;
 
       setPaymentMethods(paymentMethods.filter(m => m.id !== methodId));
-      setSuccess("Compte supprimé avec succès");
+      toast("success", "Compte supprimé avec succès"); // ✅ Remplacé
     } catch (err) {
       console.error("Erreur suppression:", err);
-      setError("Impossible de supprimer le compte");
+      toast("error", "Impossible de supprimer le compte"); // ✅ Remplacé
     } finally {
       setLoading(false);
     }
@@ -223,10 +223,10 @@ export default function PaymentMethodsPage() {
         ...m,
         is_default: m.id === methodId
       })));
-      setSuccess("Compte principal mis à jour");
+      toast("success", "Compte principal mis à jour"); // ✅ Remplacé
     } catch (err) {
       console.error("Erreur définition par défaut:", err);
-      setError("Impossible de définir le compte principal");
+      toast("error", "Impossible de définir le compte principal"); // ✅ Remplacé
     } finally {
       setLoading(false);
     }
@@ -361,14 +361,6 @@ export default function PaymentMethodsPage() {
             <p className="text-xs text-gray-400 mt-1 font-vietnam">
               Ajoutez votre premier compte pour recevoir des paiements
             </p>
-          </div>
-        )}
-
-        {/* Message de succès */}
-        {success && (
-          <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg text-primary text-sm font-vietnam flex items-center gap-2">
-            <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
-            {success}
           </div>
         )}
 

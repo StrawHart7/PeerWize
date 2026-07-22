@@ -5,11 +5,11 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { createClient } from "@/src/lib/supabase/client";
+import { useToast } from "@/src/components/ToastProvider"; // ✅ Ajouté
 import { 
   ArrowLeft, 
   Plus, 
   Trash2, 
-  CheckCircle2,
   Loader2,
   AlertCircle,
   X,
@@ -65,6 +65,7 @@ function ToggleSwitch({
 export default function ShippingPage() {
   const router = useRouter();
   const supabase = createClient();
+  const { toast } = useToast(); // ✅ Ajouté
   
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -75,7 +76,6 @@ export default function ShippingPage() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingZone, setEditingZone] = useState<ShippingZone | null>(null);
   const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
   const [newZone, setNewZone] = useState({
     name: "",
     description: "",
@@ -117,14 +117,14 @@ export default function ShippingPage() {
         }
       } catch (err) {
         console.error("Erreur chargement livraison:", err);
-        setError("Impossible de charger les données de livraison");
+        toast("error", "Impossible de charger les données de livraison"); // ✅ Remplacé
       } finally {
         setLoading(false);
       }
     };
 
     fetchShippingData();
-  }, [supabase, router]);
+  }, [supabase, router, toast]);
 
   // Ajouter une zone
   const handleAddZone = async (e: React.FormEvent) => {
@@ -133,17 +133,16 @@ export default function ShippingPage() {
 
     const price = parseFloat(newZone.price);
     if (!newZone.name.trim()) {
-      setError("Le nom de la zone est requis");
+      toast("error", "Le nom de la zone est requis"); // ✅ Remplacé
       return;
     }
     if (isNaN(price) || price <= 0) {
-      setError("Le prix doit être un nombre valide");
+      toast("error", "Le prix doit être un nombre valide"); // ✅ Remplacé
       return;
     }
 
     setSaving(true);
     setError("");
-    setSuccess("");
 
     try {
       const { data, error } = await supabase
@@ -163,10 +162,10 @@ export default function ShippingPage() {
       setZones([...zones, data]);
       setNewZone({ name: "", description: "", price: "" });
       setShowAddModal(false);
-      setSuccess("Zone de livraison ajoutée avec succès !");
+      toast("success", "Zone de livraison ajoutée avec succès !"); // ✅ Remplacé
     } catch (err) {
       console.error("Erreur ajout zone:", err);
-      setError("Impossible d'ajouter la zone");
+      toast("error", "Impossible d'ajouter la zone"); // ✅ Remplacé
     } finally {
       setSaving(false);
     }
@@ -179,17 +178,16 @@ export default function ShippingPage() {
 
     const price = parseFloat(newZone.price);
     if (!newZone.name.trim()) {
-      setError("Le nom de la zone est requis");
+      toast("error", "Le nom de la zone est requis"); // ✅ Remplacé
       return;
     }
     if (isNaN(price) || price <= 0) {
-      setError("Le prix doit être un nombre valide");
+      toast("error", "Le prix doit être un nombre valide"); // ✅ Remplacé
       return;
     }
 
     setSaving(true);
     setError("");
-    setSuccess("");
 
     try {
       const { error } = await supabase
@@ -210,10 +208,10 @@ export default function ShippingPage() {
       ));
       setShowEditModal(false);
       setEditingZone(null);
-      setSuccess("Zone de livraison modifiée avec succès !");
+      toast("success", "Zone de livraison modifiée avec succès !"); // ✅ Remplacé
     } catch (err) {
       console.error("Erreur modification zone:", err);
-      setError("Impossible de modifier la zone");
+      toast("error", "Impossible de modifier la zone"); // ✅ Remplacé
     } finally {
       setSaving(false);
     }
@@ -233,10 +231,10 @@ export default function ShippingPage() {
       if (error) throw error;
 
       setZones(zones.filter(z => z.id !== zoneId));
-      setSuccess("Zone de livraison supprimée");
+      toast("success", "Zone de livraison supprimée"); // ✅ Remplacé
     } catch (err) {
       console.error("Erreur suppression:", err);
-      setError("Impossible de supprimer la zone");
+      toast("error", "Impossible de supprimer la zone"); // ✅ Remplacé
     } finally {
       setLoading(false);
     }
@@ -260,7 +258,7 @@ export default function ShippingPage() {
       ));
     } catch (err) {
       console.error("Erreur toggle zone:", err);
-      setError("Impossible de modifier le statut de la zone");
+      toast("error", "Impossible de modifier le statut de la zone"); // ✅ Remplacé
     } finally {
       setLoading(false);
     }
@@ -280,10 +278,10 @@ export default function ShippingPage() {
       if (error) throw error;
 
       setFreeShipping(!freeShipping);
-      setSuccess("Livraison gratuite " + (!freeShipping ? "activée" : "désactivée"));
+      toast("success", "Livraison gratuite " + (!freeShipping ? "activée" : "désactivée")); // ✅ Remplacé
     } catch (err) {
       console.error("Erreur mise à jour livraison gratuite:", err);
-      setError("Impossible de mettre à jour la livraison gratuite");
+      toast("error", "Impossible de mettre à jour la livraison gratuite"); // ✅ Remplacé
     } finally {
       setSaving(false);
     }
@@ -463,25 +461,18 @@ export default function ShippingPage() {
           </p>
         </div>
 
-        {/* Erreur/Succès */}
+        {/* Erreur */}
         {error && (
           <div className="mb-4 p-3 bg-red-50 text-tertiary rounded-lg text-sm font-vietnam flex items-center gap-2">
             <AlertCircle className="w-4 h-4 flex-shrink-0" />
             {error}
           </div>
         )}
-        {success && (
-          <div className="mb-4 p-3 bg-green-50 text-primary rounded-lg text-sm font-vietnam flex items-center gap-2">
-            <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
-            {success}
-          </div>
-        )}
 
         {/* Bouton Enregistrer */}
         <button
           onClick={() => {
-            setSuccess("Modifications enregistrées avec succès !");
-            setTimeout(() => setSuccess(""), 3000);
+            toast("success", "Modifications enregistrées avec succès !"); // ✅ Remplacé
           }}
           className="w-full py-3 bg-primary text-white font-semibold rounded-lg hover:bg-[#00563e] transition-colors font-jakarta"
         >
