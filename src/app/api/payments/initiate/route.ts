@@ -199,7 +199,8 @@ export async function POST(req: NextRequest) {
 
     console.log("FedaPay pay response:", JSON.stringify(payData), "status:", payRes.status);
 
-    if (!payRes.ok) {
+    // FedaPay peut renvoyer 200 avec body vide sur USSD push live — on accepte
+    if (payRes.status >= 500) {
       console.error("FedaPay pay error:", payData);
       return NextResponse.json(
         { error: "Erreur lors du déclenchement du paiement Mobile Money." },
