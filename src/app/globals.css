@@ -34,3 +34,108 @@ body {
 .animate-toast {
   animation: slideDown 0.3s ease-out;
 }
+
+/* ── Scrollbar personnalisée ────────────────────────────────────────────── */
+
+/* Pour Chrome, Edge, Safari */
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 20px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Pour Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 transparent;
+}
+
+/* ── Scrollbar pour les éléments avec overflow ──────────────────────────── */
+
+/* Scrollbar verticale - version ultra minimaliste */
+.scrollbar-minimal::-webkit-scrollbar {
+  width: 3px;
+}
+
+.scrollbar-minimal::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.scrollbar-minimal::-webkit-scrollbar-thumb {
+  background: #e2e8f0;
+  border-radius: 20px;
+}
+
+.scrollbar-minimal::-webkit-scrollbar-thumb:hover {
+  background: #cbd5e1;
+}
+
+/* Scrollbar horizontale - version ultra minimaliste */
+.scrollbar-minimal-h::-webkit-scrollbar {
+  height: 3px;
+}
+
+.scrollbar-minimal-h::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.scrollbar-minimal-h::-webkit-scrollbar-thumb {
+  background: #e2e8f0;
+  border-radius: 20px;
+}
+
+.scrollbar-minimal-h::-webkit-scrollbar-thumb:hover {
+  background: #cbd5e1;
+}
+
+/* ── Cacher complètement la scrollbar (mais garder le scroll) ──────────── */
+
+/* Pour Chrome, Edge, Safari */
+.scrollbar-hidden::-webkit-scrollbar {
+  width: 0px;
+  height: 0px;
+  background: transparent;
+}
+
+/* Pour Firefox */
+.scrollbar-hidden {
+  scrollbar-width: none;
+}
+
+/* ── Scrollbar sombre (pour overlay sur fond sombre) ────────────────────── */
+
+.scrollbar-dark::-webkit-scrollbar-thumb {
+  background: #475569;
+}
+
+.scrollbar-dark::-webkit-scrollbar-thumb:hover {
+  background: #334155;
+}
+
+/* ── Scrollbar plus épaisse pour sections dédiées ──────────────────────── */
+
+.scrollbar-medium::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.scrollbar-medium::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 20px;
+}
+
+.scrollbar-medium::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
