@@ -52,7 +52,7 @@ export async function POST(req: NextRequest) {
     const phoneNumber = order.client_whatsapp.replace("+", "");
 
     // ── Étape 1 : Créer la transaction FedaPay ────────────────────────────────
-    const fedaRes = await fetch("https://api.fedapay.com/v1/transactions", {
+    const fedaRes = await fetch("https://sandbox.fedapay.com/v1/transactions", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
