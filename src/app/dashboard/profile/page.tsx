@@ -95,10 +95,10 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 // ── Bottom Nav ──────────────────────────────────────────────────────────────
 function BottomNav({ active }: { active: "home" | "orders" | "products" | "profile" }) {
   const items = [
-    { key: "home", label: "Home", icon: Home, href: "/dashboard" },
-    { key: "orders", label: "Orders", icon: ShoppingBag, href: "/dashboard/orders" },
-    { key: "products", label: "Products", icon: Package, href: "/dashboard/products/" },
-    { key: "profile", label: "Profile", icon: User, href: "/dashboard/profile" },
+    { key: "home", label: "Accueil", icon: Home, href: "/dashboard" },
+    { key: "orders", label: "Commandes", icon: ShoppingBag, href: "/dashboard/orders" },
+    { key: "products", label: "Produits", icon: Package, href: "/dashboard/products/" },
+    { key: "profile", label: "Profil", icon: User, href: "/dashboard/profile" },
   ] as const;
 
   return (

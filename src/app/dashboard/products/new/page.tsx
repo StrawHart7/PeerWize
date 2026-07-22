@@ -3,10 +3,12 @@
 import { useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/src/lib/supabase/client'
+import { useToast } from '@/src/components/ToastProvider'
 
 export default function NewProductPage() {
   const router = useRouter()
   const supabase = createClient()
+  const { toast } = useToast()
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const [loading, setLoading] = useState(false)
@@ -71,6 +73,8 @@ export default function NewProductPage() {
       return
     }
 
+    // ✅ Fix : capturer le slug localement
+    const currentSlug = form.slug
     setLoading(true)
 
     const { data: { user } } = await supabase.auth.getUser()
@@ -85,7 +89,7 @@ export default function NewProductPage() {
     const { data: existing } = await supabase
       .from('products')
       .select('id')
-      .eq('slug', form.slug)
+      .eq('slug', currentSlug)
       .single()
 
     if (existing) {
@@ -101,7 +105,7 @@ export default function NewProductPage() {
 
     if (photoFile) {
       const ext = photoFile.name.split('.').pop()
-      const path = `${user.id}/${form.slug}-${Date.now()}.${ext}`
+      const path = `${user.id}/${currentSlug}-${Date.now()}.${ext}`
       const { error: uploadError } = await supabase.storage
         .from('products')
         .upload(path, photoFile)
@@ -136,7 +140,7 @@ export default function NewProductPage() {
       nom: form.nom,
       description: form.description,
       prix_fcfa: parseInt(form.prix_fcfa),
-      slug: form.slug,
+      slug: currentSlug,
       photo_url,
       actif,
     })
@@ -147,7 +151,9 @@ export default function NewProductPage() {
       return
     }
 
-    router.push('/dashboard/products')
+    // ✅ Fix : redirection vers /share avec le slug capturé
+    toast("success", "Produit publié avec succès !")
+    router.push(`/dashboard/products/${currentSlug}/share`)
   }
 
   const previewLink = form.slug

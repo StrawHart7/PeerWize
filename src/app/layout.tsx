@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { Plus_Jakarta_Sans, Be_Vietnam_Pro } from 'next/font/google'
 import './globals.css'
 import { PWAProvider } from '../components/PWAProvider'
+import { ToastProvider } from '../components/ToastProvider'
 
 const jakarta = Plus_Jakarta_Sans({
   subsets: ['latin'],
@@ -43,7 +44,9 @@ export default function RootLayout({
         <meta name="theme-color" content="#006A4E" />
       </head>
       <body>
-        <PWAProvider>{children}</PWAProvider>
+        <ToastProvider>
+          <PWAProvider>{children}</PWAProvider>
+        </ToastProvider>
       </body>
     </html>
   )

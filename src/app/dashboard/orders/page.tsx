@@ -94,7 +94,7 @@ function BottomNav() {
         },
         {
           href: '/dashboard/orders',
-          label: 'Orders',
+          label: 'Comandes',
           active: true,
           icon: (
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#006A4E" strokeWidth={2}>
