@@ -73,6 +73,7 @@ export async function POST(req: NextRequest) {
     });
 
     const fedaData = await fedaRes.json();
+    console.log("FedaPay create response:", JSON.stringify(fedaData), "status:", fedaRes.status);
 
     if (!fedaRes.ok) {
       console.error("FedaPay create error:", fedaData);
@@ -109,10 +110,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // ── Étape 3 : Carte → pas de USSD, retour direct ─────────────────────────
+    // ── Étape 3 : Carte → token puis redirect ─────────────────────────────────
     if (provider === "card") {
-      // Pour la carte, FedaPay nécessite une redirection externe
-      // On génère le token et on retourne l'URL de checkout
       const tokenRes = await fetch(
         `https://api.fedapay.com/v1/transactions/${transactionId}/token`,
         {
@@ -124,16 +123,16 @@ export async function POST(req: NextRequest) {
         },
       );
 
+      const tokenData = await tokenRes.json();
+
       if (!tokenRes.ok) {
-        const tokenErr = await tokenRes.json();
-        console.error("FedaPay token error (card):", tokenErr);
+        console.error("FedaPay token error (card):", tokenData);
         return NextResponse.json(
           { error: "Erreur lors de la génération du lien de paiement." },
           { status: 502 },
         );
       }
 
-      const tokenData = await tokenRes.json();
       return NextResponse.json({
         success: true,
         checkout_url: tokenData.url ?? null,
@@ -172,7 +171,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Déclenche la notification USSD sur le téléphone du client
     const payRes = await fetch(
       `https://api.fedapay.com/v1/transactions/${transactionId}/pay`,
       {
@@ -192,7 +190,6 @@ export async function POST(req: NextRequest) {
       },
     );
 
-    // Toujours consommer le body même si ok
     let payData: unknown;
     try {
       payData = await payRes.json();
@@ -210,8 +207,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Succès — le client va recevoir la notification USSD
-    // On retourne sans checkout_url : le client reste dans l'app sur /processing
     return NextResponse.json({ success: true, checkout_url: null });
 
   } catch (err) {
