@@ -86,14 +86,22 @@ export async function POST(req: NextRequest) {
         }),
       });
 
-      const fedaData = await fedaRes.json();
+      const rawText = await fedaRes.text();
+      console.log("FedaPay raw response:", rawText.slice(0, 500));
+
+      let fedaData: unknown;
+      try {
+        fedaData = JSON.parse(rawText);
+      } catch {
+        return NextResponse.json({ error: `FedaPay réponse non-JSON: ${rawText.slice(0, 200)}` }, { status: 502 });
+      }
 
       if (!fedaRes.ok) {
         console.error("FedaPay create error:", fedaData);
         return NextResponse.json({ error: "Erreur lors de la création de la transaction." }, { status: 502 });
       }
 
-      transactionId = fedaData?.["v1/transaction"]?.id ?? fedaData?.id;
+      transactionId = (fedaData as any)?.["v1/transaction"]?.id ?? (fedaData as any)?.id;
 
       if (!transactionId) {
         console.error("FedaPay: transaction ID manquant", fedaData);
@@ -162,6 +170,8 @@ export async function POST(req: NextRequest) {
 
     let payData: unknown;
     try { payData = await payRes.json(); } catch { payData = null; }
+
+    console.log("FedaPay pay response:", JSON.stringify(payData), "status:", payRes.status);
 
     if (payRes.status >= 500) {
       console.error("FedaPay pay error:", payData);
