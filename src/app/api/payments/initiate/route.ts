@@ -3,6 +3,21 @@ import { createAdminClient } from "@/src/lib/supabase/admin";
 
 const FEDAPAY_BASE_URL = process.env.FEDAPAY_BASE_URL ?? "https://sandbox.fedapay.com";
 
+// 🔥 Défini une fois pour réutiliser
+const BROWSER_HEADERS = {
+  "Content-Type": "application/json",
+  "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+  "Accept": "application/json",
+  "Accept-Language": "fr-FR,fr;q=0.9,en-US;q=0.8,en;q=0.7",
+  "Accept-Encoding": "gzip, deflate, br",
+  "Sec-Ch-Ua": '"Not_A Brand";v="8", "Chromium";v="120", "Google Chrome";v="120"',
+  "Sec-Ch-Ua-Mobile": "?0",
+  "Sec-Ch-Ua-Platform": '"Windows"',
+  "Sec-Fetch-Dest": "empty",
+  "Sec-Fetch-Mode": "cors",
+  "Sec-Fetch-Site": "cross-site",
+};
+
 export async function POST(req: NextRequest) {
   try {
     const { order_id, provider, amount } = await req.json();
@@ -72,7 +87,7 @@ export async function POST(req: NextRequest) {
       const fedaRes = await fetch(`${FEDAPAY_BASE_URL}/v1/transactions`, {
         method: "POST",
         headers: {
-          "Content-Type": "application/json",
+          ...BROWSER_HEADERS,
           Authorization: `Bearer ${process.env.FEDAPAY_SECRET_KEY}`,
         },
         body: JSON.stringify({
@@ -127,7 +142,7 @@ export async function POST(req: NextRequest) {
     const tokenRes = await fetch(`${FEDAPAY_BASE_URL}/v1/transactions/${transactionId}/token`, {
       method: "POST",
       headers: {
-        "Content-Type": "application/json",
+        ...BROWSER_HEADERS,
         Authorization: `Bearer ${process.env.FEDAPAY_SECRET_KEY}`,
       },
     });
@@ -158,7 +173,7 @@ export async function POST(req: NextRequest) {
     const payRes = await fetch(`${FEDAPAY_BASE_URL}/v1/transactions/${transactionId}/pay`, {
       method: "POST",
       headers: {
-        "Content-Type": "application/json",
+        ...BROWSER_HEADERS,
         Authorization: `Bearer ${process.env.FEDAPAY_SECRET_KEY}`,
       },
       body: JSON.stringify({
